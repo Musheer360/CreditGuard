@@ -3,24 +3,16 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Credit card body - clean rounded rectangle, centered in safe zone -->
+    <!-- Simple credit card - white rounded rectangle -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M30,40h48c2.2,0,4,1.8,4,4v20c0,2.2,-1.8,4,-4,4H30c-2.2,0,-4,-1.8,-4,-4V44c0,-2.2,1.8,-4,4,-4z"/>
-    <!-- Magnetic stripe - clean horizontal band -->
+        android:pathData="M24,36 L84,36 C86,36 88,38 88,40 L88,68 C88,70 86,72 84,72 L24,72 C22,72 20,70 20,68 L20,40 C20,38 22,36 24,36 Z"/>
+    <!-- Magnetic stripe -->
     <path
         android:fillColor="#000000"
-        android:pathData="M26,48h56v6H26z"/>
-    <!-- EMV chip - simplified rectangle -->
+        android:pathData="M20,44 L88,44 L88,52 L20,52 Z"/>
+    <!-- Chip -->
     <path
-        android:fillColor="#000000"
-        android:pathData="M32,58h10c1.1,0,2,0.9,2,2v4c0,1.1,-0.9,2,-2,2H32c-1.1,0,-2,-0.9,-2,-2v-4c0,-1.1,0.9,-2,2,-2z"/>
-    <!-- Chip detail - single horizontal line -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M32,62h10v1H32z"/>
-    <!-- Chip detail - single vertical line -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M36.5,58h1v8h-1z"/>
+        android:fillColor="#D4AF37"
+        android:pathData="M28,56 L44,56 C46,56 48,58 48,60 L48,66 C48,68 46,70 44,70 L28,70 C26,70 24,68 24,66 L24,60 C24,58 26,56 28,56 Z"/>
 </vector>
