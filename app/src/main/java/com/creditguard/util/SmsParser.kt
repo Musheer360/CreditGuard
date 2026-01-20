@@ -5,8 +5,8 @@ import com.creditguard.data.model.Transaction
 object SmsParser {
     
     private val amountPatterns = listOf(
-        Regex("""(?:Rs\.?|INR|₹)\s*([\d,]{1,12}(?:\.\d{1,2})?)""", RegexOption.IGNORE_CASE),
-        Regex("""([\d,]{1,12}(?:\.\d{1,2})?)\s*(?:Rs\.?|INR|₹)""", RegexOption.IGNORE_CASE)
+        Regex("""(?:Rs\.?|INR|₹)\s*(\d[\d,]{0,11}(?:\.\d{1,2})?)""", RegexOption.IGNORE_CASE),
+        Regex("""(\d[\d,]{0,11}(?:\.\d{1,2})?)\s*(?:Rs\.?|INR|₹)""", RegexOption.IGNORE_CASE)
     )
     
     private val cardLast4Patterns = listOf(
@@ -29,8 +29,8 @@ object SmsParser {
     
     // Must contain one of these to be a credit card transaction
     private val creditCardIndicators = listOf(
-        "credit card", "creditcard", "cc ", " cc", "credit", 
-        "rupay credit", "visa credit", "mastercard"
+        "credit card", "creditcard", "cc ", " cc", "cr card",
+        "rupay credit", "visa credit", "mastercard", "credit a/c"
     )
     
     private val spendKeywords = listOf("spent", "debited", "charged", "purchase", "transaction", "txn")

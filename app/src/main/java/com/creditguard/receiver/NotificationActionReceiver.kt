@@ -17,19 +17,23 @@ class NotificationActionReceiver : BroadcastReceiver() {
         val merchant = intent.getStringExtra("merchant") ?: "Unknown"
         val transactionId = intent.getLongExtra("transaction_id", 0)
         
-        if (amount > 0) {
+        if (amount > 0 && transactionId > 0) {
             val payIntent = UpiHelper.createPaymentIntentForTransaction(context, amount, merchant)
-            payIntent?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             
-            try {
-                payIntent?.let { context.startActivity(it) }
+            if (payIntent != null) {
+                payIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 
-                CoroutineScope(Dispatchers.IO).launch {
-                    val app = context.applicationContext as? com.creditguard.CreditGuardApp
-                    app?.database?.transactionDao()?.markPaid(transactionId)
+                try {
+                    context.startActivity(payIntent)
+                    
+                    // Mark as paid only after successfully launching UPI app
+                    CoroutineScope(Dispatchers.IO).launch {
+                        val app = context.applicationContext as? com.creditguard.CreditGuardApp
+                        app?.database?.transactionDao()?.markPaid(transactionId)
+                    }
+                } catch (e: Exception) {
+                    // UPI app not found or failed to launch
                 }
-            } catch (e: Exception) {
-                // UPI app not found
             }
         }
     }

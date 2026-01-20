@@ -49,10 +49,9 @@ object UpiHelper {
         merchant: String
     ): Intent? {
         val securePrefs = SecurePreferences.getSecurePreferences(context)
-        val regularPrefs = context.getSharedPreferences("creditguard", Context.MODE_PRIVATE)
         
         val upiId = securePrefs.getString("vault_upi_id", "") ?: ""
-        val vaultName = regularPrefs.getString("vault_name", "Repayment Vault") ?: "Repayment Vault"
+        val vaultName = securePrefs.getString("vault_name", "Repayment Vault") ?: "Repayment Vault"
         
         val note = "CreditGuard: ${sanitizeInput(merchant)} repayment"
         return createPaymentIntent(upiId, vaultName, amount, note)

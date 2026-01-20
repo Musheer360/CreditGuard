@@ -105,8 +105,9 @@ fun DashboardScreen(
         if (transactions.isEmpty()) {
             item { EmptyState() }
         } else {
+            val displayedTransactions = transactions.take(20)
             itemsIndexed(
-                transactions.take(20),
+                displayedTransactions,
                 key = { _, tx -> tx.id }
             ) { index, tx ->
                 TransactionRow(
@@ -114,7 +115,7 @@ fun DashboardScreen(
                     context = context,
                     onMarkPaid = onMarkPaid
                 )
-                if (index < transactions.size - 1) {
+                if (index < displayedTransactions.size - 1) {
                     Spacer(Modifier.height(1.dp).fillMaxWidth().alpha(0.1f).background(Color.White))
                 }
             }
@@ -140,8 +141,10 @@ private fun PayButton(amount: Double, context: Context, onMarkAllPaid: () -> Uni
                 indication = null
             ) {
                 val intent = UpiHelper.createPaymentIntentForTransaction(context, amount, "Total Pending")
-                intent?.let { context.startActivity(it) }
-                onMarkAllPaid()
+                if (intent != null) {
+                    context.startActivity(intent)
+                    onMarkAllPaid()
+                }
             }
             .padding(vertical = 20.dp),
         contentAlignment = Alignment.Center
@@ -188,8 +191,10 @@ private fun TransactionRow(tx: Transaction, context: Context, onMarkPaid: (Long)
                 enabled = !tx.isPaid
             ) {
                 val intent = UpiHelper.createPaymentIntentForTransaction(context, tx.amount, tx.merchant)
-                intent?.let { context.startActivity(it) }
-                onMarkPaid(tx.id)
+                if (intent != null) {
+                    context.startActivity(intent)
+                    onMarkPaid(tx.id)
+                }
             }
             .padding(vertical = 20.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
