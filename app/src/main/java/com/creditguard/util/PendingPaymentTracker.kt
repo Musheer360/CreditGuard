@@ -15,7 +15,7 @@ object PendingPaymentTracker {
     private const val TIMEOUT_MS = 5 * 60 * 1000L // 5 minutes
     
     private fun getPrefs(context: Context): SharedPreferences {
-        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     }
     
     fun setPendingPayment(context: Context, amount: Double, transactionIds: List<Long>) {
@@ -47,6 +47,10 @@ object PendingPaymentTracker {
         getPrefs(context).edit().clear().apply()
     }
     
+    /**
+     * Checks if the debited amount matches a pending payment and marks transactions as paid.
+     * This version is optimized for use within a BroadcastReceiver - caller must handle goAsync().
+     */
     fun checkAndMarkPaid(context: Context, debitedAmount: Double): Boolean {
         val pendingAmount = getPendingAmount(context) ?: return false
         
@@ -54,6 +58,8 @@ object PendingPaymentTracker {
         if (kotlin.math.abs(pendingAmount - debitedAmount) <= 1.0) {
             val txIds = getPendingTransactionIds(context)
             if (txIds.isNotEmpty()) {
+                // Launch coroutine for DB operations
+                // Note: The caller (SmsReceiver) handles goAsync() for its own lifecycle
                 CoroutineScope(Dispatchers.IO).launch {
                     val app = context.applicationContext as? CreditGuardApp
                     val dao = app?.database?.transactionDao()
@@ -62,7 +68,7 @@ object PendingPaymentTracker {
                 clear(context)
                 
                 // Store success for UI to show
-                context.getSharedPreferences("payment_success", Context.MODE_PRIVATE)
+                context.applicationContext.getSharedPreferences("payment_success", Context.MODE_PRIVATE)
                     .edit()
                     .putBoolean("show_success", true)
                     .putFloat("amount", debitedAmount.toFloat())
@@ -76,7 +82,7 @@ object PendingPaymentTracker {
     }
     
     fun getAndClearSuccess(context: Context): PaymentSuccess? {
-        val prefs = context.getSharedPreferences("payment_success", Context.MODE_PRIVATE)
+        val prefs = context.applicationContext.getSharedPreferences("payment_success", Context.MODE_PRIVATE)
         if (!prefs.getBoolean("show_success", false)) return null
         
         val success = PaymentSuccess(

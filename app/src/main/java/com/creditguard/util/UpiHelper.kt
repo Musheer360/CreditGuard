@@ -2,7 +2,9 @@ package com.creditguard.util
 
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 
 object UpiHelper {
     
@@ -57,8 +59,16 @@ object UpiHelper {
         return createPaymentIntent(upiId, vaultName, amount, note)
     }
     
+    @Suppress("DEPRECATION")
     fun hasUpiApps(context: Context): Boolean {
         val testIntent = Intent(Intent.ACTION_VIEW, Uri.parse("upi://pay"))
-        return context.packageManager.queryIntentActivities(testIntent, 0).isNotEmpty()
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            context.packageManager.queryIntentActivities(
+                testIntent, 
+                PackageManager.ResolveInfoFlags.of(PackageManager.MATCH_DEFAULT_ONLY.toLong())
+            ).isNotEmpty()
+        } else {
+            context.packageManager.queryIntentActivities(testIntent, 0).isNotEmpty()
+        }
     }
 }
