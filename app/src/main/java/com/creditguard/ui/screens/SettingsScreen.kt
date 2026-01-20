@@ -20,7 +20,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
+import android.view.HapticFeedbackConstants
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -31,6 +33,7 @@ import kotlinx.coroutines.delay
 @Composable
 fun SettingsScreen(onClearHistory: () -> Unit) {
     val context = LocalContext.current
+    val view = LocalView.current
     val prefs = remember { SecurePreferences.getSecurePreferences(context) }
     
     var upiId by remember { mutableStateOf(prefs.getString("vault_upi_id", "") ?: "") }
@@ -100,6 +103,7 @@ fun SettingsScreen(onClearHistory: () -> Unit) {
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null
                 ) {
+                    view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
                     prefs.edit()
                         .putString("vault_upi_id", upiId)
                         .putString("vault_name", vaultName)

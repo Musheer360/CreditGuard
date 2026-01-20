@@ -1,6 +1,7 @@
 package com.creditguard.ui.screens
 
 import android.content.Context
+import android.view.HapticFeedbackConstants
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -9,17 +10,15 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -29,6 +28,7 @@ import com.creditguard.util.UpiHelper
 import java.text.SimpleDateFormat
 import java.util.*
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
     transactions: List<Transaction>,
@@ -188,19 +188,18 @@ private fun ConfirmationDialog(
 
 @Composable
 private fun PayButton(amount: Double, context: Context, onPaymentInitiated: () -> Unit) {
+    val view = LocalView.current
+    
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .clip(CircleShape)
-            .background(
-                Brush.horizontalGradient(
-                    listOf(GradientPurpleStart, GradientBlueStart)
-                )
-            )
+            .background(Color.White)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null
             ) {
+                view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
                 val intent = UpiHelper.createPaymentIntentForTransaction(context, amount, "Total Pending")
                 if (intent != null) {
                     context.startActivity(intent)
@@ -212,7 +211,7 @@ private fun PayButton(amount: Double, context: Context, onPaymentInitiated: () -
     ) {
         Text(
             "pay all  →",
-            color = Color.White,
+            color = Color.Black,
             fontSize = 16.sp,
             fontWeight = FontWeight.Medium,
             letterSpacing = 1.sp
@@ -239,6 +238,7 @@ private fun StatItem(label: String, value: String, valueColor: Color = Color.Whi
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TransactionRow(
     tx: Transaction, 
@@ -247,60 +247,74 @@ private fun TransactionRow(
     onMarkUnpaid: (Long) -> Unit
 ) {
     val dateFormat = remember { SimpleDateFormat("dd MMM", Locale.getDefault()) }
+    val view = LocalView.current
+    val dismissState = rememberDismissState(
+        confirmValueChange = { dismissValue ->
+            if (dismissValue == DismissValue.DismissedToStart && tx.isPaid) {
+                view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
+                onMarkUnpaid(tx.id)
+                true
+            } else false
+        }
+    )
     
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null
-            ) {
-                if (tx.isPaid) {
-                    // For paid transactions, allow unmarking
-                    onMarkUnpaid(tx.id)
-                } else {
-                    // For unpaid transactions, launch UPI and show confirmation
-                    val intent = UpiHelper.createPaymentIntentForTransaction(context, tx.amount, tx.merchant)
-                    if (intent != null) {
-                        context.startActivity(intent)
-                        onPaymentInitiated()
+    SwipeToDismiss(
+        state = dismissState,
+        directions = if (tx.isPaid) setOf(DismissDirection.EndToStart) else emptySet(),
+        background = {},
+        dismissContent = {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) {
+                        view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                        if (!tx.isPaid) {
+                            val intent = UpiHelper.createPaymentIntentForTransaction(context, tx.amount, tx.merchant)
+                            if (intent != null) {
+                                context.startActivity(intent)
+                                onPaymentInitiated()
+                            }
+                        }
                     }
+                    .padding(vertical = 20.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        tx.merchant,
+                        color = if (tx.isPaid) SecondaryText else Color.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Normal
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "${tx.bank} · ${dateFormat.format(Date(tx.timestamp))}",
+                        color = TertiaryText,
+                        fontSize = 12.sp
+                    )
+                }
+                
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        "₹${formatAmount(tx.amount)}",
+                        color = if (tx.isPaid) Success else Color.White,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Light
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        if (tx.isPaid) "swipe left to unmark" else "tap to pay",
+                        color = TertiaryText,
+                        fontSize = 10.sp
+                    )
                 }
             }
-            .padding(vertical = 20.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                tx.merchant,
-                color = if (tx.isPaid) SecondaryText else Color.White,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Normal
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                "${tx.bank} · ${dateFormat.format(Date(tx.timestamp))}",
-                color = TertiaryText,
-                fontSize = 12.sp
-            )
         }
-        
-        Column(horizontalAlignment = Alignment.End) {
-            Text(
-                "₹${formatAmount(tx.amount)}",
-                color = if (tx.isPaid) Success else Color.White,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Light
-            )
-            Spacer(Modifier.height(2.dp))
-            Text(
-                if (tx.isPaid) "tap to unmark" else "tap to pay",
-                color = TertiaryText,
-                fontSize = 10.sp
-            )
-        }
-    }
+    )
 }
 
 @Composable
