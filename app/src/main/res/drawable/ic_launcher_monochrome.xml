@@ -2,17 +2,18 @@
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
-    android:viewportHeight="108">
-    <!-- Credit card - centered, symmetric -->
+    android:viewportHeight="108"
+    android:tint="#000000">
+    <!-- Credit card outline - symmetric -->
+    <path
+        android:fillColor="#000000"
+        android:pathData="M22,38 L86,38 C88,38 90,40 90,42 L90,66 C90,68 88,70 86,70 L22,70 C20,70 18,68 18,66 L18,42 C18,40 20,38 22,38 Z"/>
+    <!-- Magnetic stripe cutout -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M22,38 L86,38 C88,38 90,40 90,42 L90,66 C90,68 88,70 86,70 L22,70 C20,70 18,68 18,66 L18,42 C18,40 20,38 22,38 Z"/>
-    <!-- Magnetic stripe - centered -->
-    <path
-        android:fillColor="#000000"
         android:pathData="M18,46 L90,46 L90,52 L18,52 Z"/>
-    <!-- Chip - simple centered rectangle -->
+    <!-- Chip cutout -->
     <path
-        android:fillColor="#000000"
+        android:fillColor="#FFFFFF"
         android:pathData="M26,56 L42,56 L42,66 L26,66 Z"/>
 </vector>
