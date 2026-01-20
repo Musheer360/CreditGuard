@@ -27,9 +27,10 @@ class SmsReceiver : BroadcastReceiver() {
         
         CoroutineScope(Dispatchers.IO).launch {
             val app = context.applicationContext as? com.creditguard.CreditGuardApp
-            app?.database?.transactionDao()?.insert(transaction)
+            val insertedId = app?.database?.transactionDao()?.insert(transaction) ?: return@launch
             
-            NotificationHelper.showTransactionNotification(context, transaction)
+            val transactionWithId = transaction.copy(id = insertedId)
+            NotificationHelper.showTransactionNotification(context, transactionWithId)
         }
     }
 }

@@ -19,7 +19,7 @@ interface TransactionDao {
     fun getTotalSpentSince(startTime: Long): Flow<Double?>
     
     @Insert
-    suspend fun insert(transaction: Transaction)
+    suspend fun insert(transaction: Transaction): Long
     
     @Query("UPDATE transactions SET isPaid = 1 WHERE id = :id")
     suspend fun markPaid(id: Long)
