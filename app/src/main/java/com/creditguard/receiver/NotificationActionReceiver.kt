@@ -18,30 +18,34 @@ class NotificationActionReceiver : BroadcastReceiver() {
         val merchant = intent.getStringExtra("merchant") ?: "Unknown"
         val transactionId = intent.getLongExtra("transaction_id", 0)
         
-        if (amount > 0 && transactionId > 0) {
-            val payIntent = UpiHelper.createPaymentIntentForTransaction(context, amount, merchant)
+        if (amount <= 0 || transactionId <= 0) return
+        
+        val payIntent = UpiHelper.createPaymentIntentForTransaction(context, amount, merchant)
+            ?: return
+        
+        payIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        
+        // Try to launch UPI app
+        val activityLaunched = try {
+            context.startActivity(payIntent)
+            true
+        } catch (e: Exception) {
+            // UPI app not found or failed to launch
+            false
+        }
+        
+        // Only mark as paid if activity was successfully launched
+        if (activityLaunched) {
+            // Use goAsync() to properly handle async work in BroadcastReceiver
+            val pendingResult = goAsync()
             
-            if (payIntent != null) {
-                payIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                
+            CoroutineScope(Dispatchers.IO).launch {
                 try {
-                    context.startActivity(payIntent)
-                    
-                    // Use goAsync() to properly handle async work in BroadcastReceiver
-                    val pendingResult = goAsync()
-                    
-                    // Mark as paid only after successfully launching UPI app
-                    CoroutineScope(Dispatchers.IO).launch {
-                        try {
-                            val app = context.applicationContext as? CreditGuardApp
-                            app?.database?.transactionDao()?.markPaid(transactionId)
-                        } finally {
-                            // Always finish the async operation to release system resources
-                            pendingResult.finish()
-                        }
-                    }
-                } catch (e: Exception) {
-                    // UPI app not found or failed to launch - no async work needed
+                    val app = context.applicationContext as? CreditGuardApp
+                    app?.database?.transactionDao()?.markPaid(transactionId)
+                } finally {
+                    // Always finish the async operation to release system resources
+                    pendingResult.finish()
                 }
             }
         }
