@@ -52,33 +52,45 @@ object PendingPaymentTracker {
      * This version is optimized for use within a BroadcastReceiver - caller must handle goAsync().
      */
     fun checkAndMarkPaid(context: Context, debitedAmount: Double): Boolean {
-        val pendingAmount = getPendingAmount(context) ?: return false
-        
-        // Check if amounts match (within 1 rupee tolerance for rounding)
-        if (kotlin.math.abs(pendingAmount - debitedAmount) <= 1.0) {
-            val txIds = getPendingTransactionIds(context)
-            if (txIds.isNotEmpty()) {
-                // Launch coroutine for DB operations
-                // Note: The caller (SmsReceiver) handles goAsync() for its own lifecycle
-                CoroutineScope(Dispatchers.IO).launch {
-                    val app = context.applicationContext as? CreditGuardApp
-                    val dao = app?.database?.transactionDao()
-                    txIds.forEach { id -> dao?.markPaid(id) }
+        return try {
+            val pendingAmount = getPendingAmount(context) ?: return false
+            
+            // Check if amounts match (within 1 rupee tolerance for rounding)
+            if (kotlin.math.abs(pendingAmount - debitedAmount) <= 1.0) {
+                val txIds = getPendingTransactionIds(context)
+                if (txIds.isNotEmpty()) {
+                    // Launch coroutine for DB operations
+                    // Note: The caller (SmsReceiver) handles goAsync() for its own lifecycle
+                    CoroutineScope(Dispatchers.IO).launch {
+                        try {
+                            val app = context.applicationContext as? CreditGuardApp
+                            val dao = app?.database?.transactionDao()
+                            txIds.forEach { id -> dao?.markPaid(id) }
+                        } catch (_: Exception) {
+                            // Ignore DB errors - non-critical
+                        }
+                    }
+                    clear(context)
+                    
+                    // Store success for UI to show
+                    try {
+                        context.applicationContext.getSharedPreferences("payment_success", Context.MODE_PRIVATE)
+                            .edit()
+                            .putBoolean("show_success", true)
+                            .putFloat("amount", debitedAmount.toFloat())
+                            .putInt("count", txIds.size)
+                            .apply()
+                    } catch (_: Exception) {
+                        // Ignore SharedPreferences errors - non-critical
+                    }
+                    
+                    return true
                 }
-                clear(context)
-                
-                // Store success for UI to show
-                context.applicationContext.getSharedPreferences("payment_success", Context.MODE_PRIVATE)
-                    .edit()
-                    .putBoolean("show_success", true)
-                    .putFloat("amount", debitedAmount.toFloat())
-                    .putInt("count", txIds.size)
-                    .apply()
-                
-                return true
             }
+            false
+        } catch (_: Exception) {
+            false
         }
-        return false
     }
     
     fun getAndClearSuccess(context: Context): PaymentSuccess? {

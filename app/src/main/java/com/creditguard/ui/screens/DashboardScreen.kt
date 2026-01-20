@@ -45,20 +45,28 @@ import kotlin.math.abs
 private object Haptics {
     // Success: payment confirmed, save complete
     fun success(context: Context) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                (context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager).defaultVibrator
-            } else {
-                @Suppress("DEPRECATION") context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    (context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager)?.defaultVibrator
+                } else {
+                    @Suppress("DEPRECATION") context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+                }
+                vibrator?.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK))
             }
-            vibrator.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK))
+        } catch (_: Exception) {
+            // Ignore haptic failures - non-critical
         }
     }
     
     // Swipe threshold reached
     fun threshold(view: View) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
+            }
+        } catch (_: Exception) {
+            // Ignore haptic failures - non-critical
         }
     }
 }
@@ -206,9 +214,13 @@ private fun PayButton(amount: Double, context: Context, transactionIds: List<Lon
             .clip(CircleShape)
             .background(Color.White)
             .clickable(interactionSource = interaction, indication = null) {
-                PendingPaymentTracker.setPendingPayment(context, amount, transactionIds)
-                val intent = UpiHelper.createPaymentIntentForTransaction(context, amount, "Total Pending")
-                intent?.let { context.startActivity(it) }
+                try {
+                    PendingPaymentTracker.setPendingPayment(context, amount, transactionIds)
+                    val intent = UpiHelper.createPaymentIntentForTransaction(context, amount, "Total Pending")
+                    intent?.let { context.startActivity(it) }
+                } catch (_: Exception) {
+                    // Handle case where no UPI app is available or activity fails to start
+                }
             }
             .padding(vertical = 20.dp),
         contentAlignment = Alignment.Center
@@ -236,22 +248,44 @@ private fun SwipeableTransactionRow(
     val dateFormat = remember { SimpleDateFormat("dd MMM", Locale.getDefault()) }
     var offsetX by remember { mutableFloatStateOf(0f) }
     var didHaptic by remember { mutableStateOf(false) }
+    // Capture isPaid state at the start to avoid state changes during an active gesture.
+    // This ensures consistent swipe behavior even if the underlying data changes mid-gesture.
+    val isPaidState = tx.isPaid
+    
+    // Reset offset when isPaid changes (e.g., after marking unpaid)
+    LaunchedEffect(tx.isPaid) {
+        offsetX = 0f
+        didHaptic = false
+    }
     
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .offset(x = offsetX.dp)
-            .pointerInput(tx.isPaid) {
-                if (tx.isPaid) {
-                    detectHorizontalDragGestures(
-                        onDragStart = { didHaptic = false },
-                        onDragEnd = {
-                            if (offsetX < -100) {
+            .pointerInput(tx.id) {
+                // Use tx.id as key instead of tx.isPaid to prevent gesture cancellation
+                detectHorizontalDragGestures(
+                    onDragStart = { 
+                        didHaptic = false 
+                    },
+                    onDragEnd = {
+                        try {
+                            // Only process swipe-to-unmark if the transaction is paid
+                            if (isPaidState && offsetX < -100) {
                                 onMarkUnpaid(tx.id)
                             }
-                            offsetX = 0f
-                        },
-                        onHorizontalDrag = { _, dragAmount ->
+                        } catch (_: Exception) {
+                            // Ignore any errors during swipe action
+                        }
+                        offsetX = 0f
+                    },
+                    onDragCancel = {
+                        // Reset on cancel to prevent stuck state
+                        offsetX = 0f
+                    },
+                    onHorizontalDrag = { _, dragAmount ->
+                        // Only allow left swipe for paid transactions
+                        if (isPaidState) {
                             offsetX = (offsetX + dragAmount / 3).coerceIn(-150f, 0f)
                             // Single haptic when threshold reached
                             if (offsetX < -100 && !didHaptic) {
@@ -259,14 +293,18 @@ private fun SwipeableTransactionRow(
                                 didHaptic = true
                             }
                         }
-                    )
-                }
+                    }
+                )
             }
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
                 if (!tx.isPaid) {
-                    PendingPaymentTracker.setPendingPayment(context, tx.amount, listOf(tx.id))
-                    val intent = UpiHelper.createPaymentIntentForTransaction(context, tx.amount, tx.merchant)
-                    intent?.let { context.startActivity(it) }
+                    try {
+                        PendingPaymentTracker.setPendingPayment(context, tx.amount, listOf(tx.id))
+                        val intent = UpiHelper.createPaymentIntentForTransaction(context, tx.amount, tx.merchant)
+                        intent?.let { context.startActivity(it) }
+                    } catch (_: Exception) {
+                        // Handle case where no UPI app is available or activity fails to start
+                    }
                 }
             }
             .padding(vertical = 20.dp)
