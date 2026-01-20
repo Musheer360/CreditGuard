@@ -4,21 +4,33 @@ import com.creditguard.data.model.Transaction
 
 object SmsParser {
     
-    private val amountPatterns = listOf(
-        Regex("""(?:Rs\.?|INR|₹)\s*(\d[\d,]{0,11}(?:\.\d{1,2})?)""", RegexOption.IGNORE_CASE),
-        Regex("""(\d[\d,]{0,11}(?:\.\d{1,2})?)\s*(?:Rs\.?|INR|₹)""", RegexOption.IGNORE_CASE)
-    )
+    // Use lazy initialization so regex patterns are compiled only once
+    private val amountPatterns by lazy {
+        listOf(
+            Regex("""(?:Rs\.?|INR|₹)\s*(\d[\d,]{0,11}(?:\.\d{1,2})?)""", RegexOption.IGNORE_CASE),
+            Regex("""(\d[\d,]{0,11}(?:\.\d{1,2})?)\s*(?:Rs\.?|INR|₹)""", RegexOption.IGNORE_CASE)
+        )
+    }
     
-    private val cardLast4Patterns = listOf(
-        Regex("""(?:credit\s*card|card).{0,20}?[xX*]{2,12}(\d{4})""", RegexOption.IGNORE_CASE),
-        Regex("""(?:credit\s*card|card).{0,20}?(?:ending|ends)\s*(?:with\s+)?(\d{4})""", RegexOption.IGNORE_CASE),
-        Regex("""[xX*]{4,12}(\d{4})(?=.*(?:credit|card))""", RegexOption.IGNORE_CASE)
-    )
+    private val cardLast4Patterns by lazy {
+        listOf(
+            Regex("""(?:credit\s*card|card).{0,20}?[xX*]{2,12}(\d{4})""", RegexOption.IGNORE_CASE),
+            Regex("""(?:credit\s*card|card).{0,20}?(?:ending|ends)\s*(?:with\s+)?(\d{4})""", RegexOption.IGNORE_CASE),
+            Regex("""[xX*]{4,12}(\d{4})(?=.*(?:credit|card))""", RegexOption.IGNORE_CASE)
+        )
+    }
     
-    private val merchantPatterns = listOf(
-        Regex("""(?:at|@)\s+([A-Za-z0-9\s&'._-]{2,35})(?:\s+on|\s+for|\s+via|\.|,|$)""", RegexOption.IGNORE_CASE),
-        Regex("""(?:to|towards)\s+([A-Za-z0-9\s&'._-]{2,35})(?:\s+on|\s+Ref|\.|,|$)""", RegexOption.IGNORE_CASE)
-    )
+    private val merchantPatterns by lazy {
+        listOf(
+            Regex("""(?:at|@)\s+([A-Za-z0-9\s&'._-]{2,35})(?:\s+on|\s+for|\s+via|\.|,|$)""", RegexOption.IGNORE_CASE),
+            Regex("""(?:to|towards)\s+([A-Za-z0-9\s&'._-]{2,35})(?:\s+on|\s+Ref|\.|,|$)""", RegexOption.IGNORE_CASE)
+        )
+    }
+    
+    // Fallback pattern for card last 4 digits
+    private val cardLast4Fallback by lazy {
+        Regex("""[xX*]{2,12}(\d{4})""")
+    }
     
     private val bankKeywords = mapOf(
         "HDFC" to "HDFC", "ICICI" to "ICICI", "SBI" to "SBI", "AXIS" to "Axis",
@@ -93,7 +105,7 @@ object SmsParser {
             pattern.find(body)?.groupValues?.get(1)?.let { return it }
         }
         // Fallback: find any 4 digits after XX pattern
-        Regex("""[xX*]{2,12}(\d{4})""").find(body)?.let { return it.groupValues[1] }
+        cardLast4Fallback.find(body)?.let { return it.groupValues[1] }
         return null
     }
     

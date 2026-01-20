@@ -116,6 +116,56 @@ fun SettingsScreen(onClearHistory: () -> Unit) {
         Text("your data never leaves your device", color = TertiaryText, fontSize = 12.sp)
         
         Spacer(Modifier.height(32.dp))
+        
+        // Danger zone - Clear history button
+        var showClearConfirm by remember { mutableStateOf(false) }
+        
+        Text("danger zone", color = ErrorRed.copy(alpha = 0.7f), fontSize = 11.sp, letterSpacing = 1.sp)
+        Spacer(Modifier.height(16.dp))
+        
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(CircleShape)
+                .border(1.dp, ErrorRed.copy(alpha = 0.5f), CircleShape)
+                .clickable { showClearConfirm = !showClearConfirm }
+                .padding(vertical = 16.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                if (showClearConfirm) "tap again to confirm" else "clear all history",
+                color = ErrorRed.copy(alpha = 0.8f),
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Normal,
+                letterSpacing = 0.5.sp
+            )
+        }
+        
+        if (showClearConfirm) {
+            Spacer(Modifier.height(8.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(CircleShape)
+                    .background(ErrorRed)
+                    .clickable {
+                        onClearHistory()
+                        showClearConfirm = false
+                    }
+                    .padding(vertical = 16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    "delete everything",
+                    color = Color.White,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    letterSpacing = 0.5.sp
+                )
+            }
+        }
+        
+        Spacer(Modifier.height(32.dp))
     }
 }
 

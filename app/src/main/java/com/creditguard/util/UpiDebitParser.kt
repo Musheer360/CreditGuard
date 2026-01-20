@@ -2,11 +2,14 @@ package com.creditguard.util
 
 object UpiDebitParser {
     
-    private val debitPatterns = listOf(
-        Regex("""(?:debited|sent|paid|transferred).{0,30}?(?:Rs\.?|INR|₹)\s*([\d,]+(?:\.\d{1,2})?)""", RegexOption.IGNORE_CASE),
-        Regex("""(?:Rs\.?|INR|₹)\s*([\d,]+(?:\.\d{1,2})?).{0,30}?(?:debited|sent|paid|transferred)""", RegexOption.IGNORE_CASE),
-        Regex("""(?:Rs\.?|INR|₹)\s*([\d,]+(?:\.\d{1,2})?).{0,20}?(?:from|to).{0,30}?(?:UPI|IMPS|NEFT)""", RegexOption.IGNORE_CASE)
-    )
+    // Use lazy initialization so regex patterns are compiled only once
+    private val debitPatterns by lazy {
+        listOf(
+            Regex("""(?:debited|sent|paid|transferred).{0,30}?(?:Rs\.?|INR|₹)\s*([\d,]+(?:\.\d{1,2})?)""", RegexOption.IGNORE_CASE),
+            Regex("""(?:Rs\.?|INR|₹)\s*([\d,]+(?:\.\d{1,2})?).{0,30}?(?:debited|sent|paid|transferred)""", RegexOption.IGNORE_CASE),
+            Regex("""(?:Rs\.?|INR|₹)\s*([\d,]+(?:\.\d{1,2})?).{0,20}?(?:from|to).{0,30}?(?:UPI|IMPS|NEFT)""", RegexOption.IGNORE_CASE)
+        )
+    }
     
     private val upiKeywords = listOf("upi", "imps", "neft", "gpay", "phonepe", "paytm", "bhim", "sent to", "paid to", "transferred")
     
