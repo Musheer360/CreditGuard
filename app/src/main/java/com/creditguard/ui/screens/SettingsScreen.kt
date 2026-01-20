@@ -80,8 +80,12 @@ fun SettingsScreen(onClearHistory: () -> Unit) {
                 .clip(CircleShape)
                 .background(if (saved) Success else Color.White)
                 .clickable(interactionSource = saveInteraction, indication = null) {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                        view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
+                    try {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                            view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
+                        }
+                    } catch (_: Exception) {
+                        // Ignore haptic failures - non-critical
                     }
                     prefs.edit()
                         .putString("vault_upi_id", upiId)
