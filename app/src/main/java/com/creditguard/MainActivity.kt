@@ -22,6 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.creditguard.data.db.AppDatabase
 import com.creditguard.ui.MainViewModel
@@ -38,8 +39,9 @@ class MainActivity : ComponentActivity() {
     ) { }
     
     override fun onCreate(savedInstanceState: Bundle?) {
-        enableEdgeToEdge()
+        installSplashScreen()
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
         requestPermissions()
         
         val dao = AppDatabase.getInstance(this).transactionDao()
