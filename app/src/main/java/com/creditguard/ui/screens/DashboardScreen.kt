@@ -8,6 +8,7 @@ import android.os.VibratorManager
 import android.view.HapticFeedbackConstants
 import android.view.View
 import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -28,75 +29,50 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.creditguard.data.model.Transaction
 import com.creditguard.ui.theme.*
+import com.creditguard.util.PendingPaymentTracker
 import com.creditguard.util.UpiHelper
+import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.math.abs
 
-// Haptic helper for dynamic intensity
 object Haptics {
-    fun tick(view: View) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
-        } else {
-            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-        }
-    }
-    
+    fun tick(view: View) = view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
     fun confirm(view: View) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
-        } else {
-            view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
+        else view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
     }
-    
     fun reject(view: View) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            view.performHapticFeedback(HapticFeedbackConstants.REJECT)
-        } else {
-            view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) view.performHapticFeedback(HapticFeedbackConstants.REJECT)
+        else view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
     }
-    
     fun heavyClick(view: View) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
-            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_PRESS)
-        } else {
-            view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_PRESS)
+        else view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
     }
-    
     fun dynamicSwipe(context: Context, progress: Float) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val vibrator = (context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager).defaultVibrator
-            val amplitude = (50 + (progress * 200)).toInt().coerceIn(1, 255)
-            vibrator.vibrate(VibrationEffect.createOneShot(10, amplitude))
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            @Suppress("DEPRECATION")
-            val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-            val amplitude = (50 + (progress * 200)).toInt().coerceIn(1, 255)
-            vibrator.vibrate(VibrationEffect.createOneShot(10, amplitude))
+            vibrator.vibrate(VibrationEffect.createOneShot(10, (50 + progress * 200).toInt().coerceIn(1, 255)))
         }
     }
-    
     fun success(context: Context) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val vibrator = (context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager).defaultVibrator
-            vibrator.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 30, 50, 30), intArrayOf(0, 150, 0, 200), -1))
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            @Suppress("DEPRECATION")
-            val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-            vibrator.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 30, 50, 30), intArrayOf(0, 150, 0, 200), -1))
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                (context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager).defaultVibrator
+            } else {
+                @Suppress("DEPRECATION") context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+            }
+            vibrator.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 50, 100, 50), intArrayOf(0, 200, 0, 255), -1))
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
     transactions: List<Transaction>,
@@ -110,40 +86,22 @@ fun DashboardScreen(
     val context = LocalContext.current
     val view = LocalView.current
     
-    var showPayAllConfirmation by remember { mutableStateOf(false) }
-    var showSinglePayConfirmation by remember { mutableStateOf<Transaction?>(null) }
+    // Check for payment success on resume
+    var paymentSuccess by remember { mutableStateOf<PendingPaymentTracker.PaymentSuccess?>(null) }
     
-    if (showPayAllConfirmation) {
-        Haptics.tick(view)
-        ConfirmationDialog(
-            title = "Confirm Payment",
-            message = "Did you complete the payment of ₹${formatAmount(unpaidTotal)}?",
-            onConfirm = {
-                Haptics.success(context)
-                onMarkAllPaid()
-                showPayAllConfirmation = false
-            },
-            onDismiss = {
-                Haptics.reject(view)
-                showPayAllConfirmation = false
-            }
-        )
+    LaunchedEffect(Unit) {
+        paymentSuccess = PendingPaymentTracker.getAndClearSuccess(context)
+        if (paymentSuccess != null) {
+            Haptics.success(context)
+        }
     }
     
-    showSinglePayConfirmation?.let { tx ->
-        Haptics.tick(view)
-        ConfirmationDialog(
-            title = "Confirm Payment",
-            message = "Did you complete the payment of ₹${formatAmount(tx.amount)} for ${tx.merchant}?",
-            onConfirm = {
-                Haptics.success(context)
-                onMarkPaid(tx.id)
-                showSinglePayConfirmation = null
-            },
-            onDismiss = {
-                Haptics.reject(view)
-                showSinglePayConfirmation = null
-            }
+    // Success overlay
+    if (paymentSuccess != null) {
+        SuccessOverlay(
+            amount = paymentSuccess!!.amount,
+            count = paymentSuccess!!.count,
+            onDismiss = { paymentSuccess = null }
         )
     }
     
@@ -167,7 +125,11 @@ fun DashboardScreen(
         
         if (unpaidTotal > 0) {
             item {
-                PayButton(amount = unpaidTotal, context = context, onPaymentInitiated = { showPayAllConfirmation = true })
+                PayButton(
+                    amount = unpaidTotal,
+                    context = context,
+                    transactionIds = transactions.filter { !it.isPaid }.map { it.id }
+                )
                 Spacer(Modifier.height(48.dp))
             }
         }
@@ -193,7 +155,6 @@ fun DashboardScreen(
                 SwipeableTransactionRow(
                     tx = tx,
                     context = context,
-                    onPaymentInitiated = { showSinglePayConfirmation = tx },
                     onMarkUnpaid = onMarkUnpaid
                 )
                 if (index < displayedTransactions.size - 1) {
@@ -207,30 +168,59 @@ fun DashboardScreen(
 }
 
 @Composable
-private fun ConfirmationDialog(title: String, message: String, onConfirm: () -> Unit, onDismiss: () -> Unit) {
-    val view = LocalView.current
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title, fontWeight = FontWeight.Medium) },
-        text = { Text(message) },
-        confirmButton = {
-            TextButton(onClick = { Haptics.confirm(view); onConfirm() }) {
-                Text("Yes, Paid", color = Success)
+private fun SuccessOverlay(amount: Double, count: Int, onDismiss: () -> Unit) {
+    val scale = remember { Animatable(0f) }
+    val alpha = remember { Animatable(0f) }
+    
+    LaunchedEffect(Unit) {
+        alpha.animateTo(1f, tween(200))
+        scale.animateTo(1f, spring(dampingRatio = 0.6f, stiffness = 300f))
+        delay(2500)
+        alpha.animateTo(0f, tween(300))
+        onDismiss()
+    }
+    
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .alpha(alpha.value)
+            .background(PureBlack.copy(alpha = 0.95f))
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { },
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.scale(scale.value)
+        ) {
+            Text("✓", fontSize = 72.sp, color = Success)
+            Spacer(Modifier.height(24.dp))
+            Text(
+                "₹${formatAmount(amount)}",
+                fontSize = 40.sp,
+                fontWeight = FontWeight.Light,
+                color = Color.White
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "set aside successfully",
+                fontSize = 16.sp,
+                color = SecondaryText,
+                letterSpacing = 1.sp
+            )
+            if (count > 1) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "$count transactions marked as paid",
+                    fontSize = 13.sp,
+                    color = TertiaryText
+                )
             }
-        },
-        dismissButton = {
-            TextButton(onClick = { Haptics.tick(view); onDismiss() }) {
-                Text("No", color = SecondaryText)
-            }
-        },
-        containerColor = CardSurface,
-        titleContentColor = Color.White,
-        textContentColor = SecondaryText
-    )
+        }
+    }
 }
 
 @Composable
-private fun PayButton(amount: Double, context: Context, onPaymentInitiated: () -> Unit) {
+private fun PayButton(amount: Double, context: Context, transactionIds: List<Long>) {
     val view = LocalView.current
     var pressed by remember { mutableStateOf(false) }
     
@@ -244,25 +234,21 @@ private fun PayButton(amount: Double, context: Context, onPaymentInitiated: () -
                 awaitPointerEventScope {
                     while (true) {
                         val event = awaitPointerEvent()
-                        when {
-                            event.changes.any { it.pressed } && !pressed -> {
-                                pressed = true
-                                Haptics.heavyClick(view)
-                            }
-                            event.changes.none { it.pressed } && pressed -> {
-                                pressed = false
-                            }
+                        if (event.changes.any { it.pressed } && !pressed) {
+                            pressed = true
+                            Haptics.heavyClick(view)
+                        } else if (event.changes.none { it.pressed } && pressed) {
+                            pressed = false
                         }
                     }
                 }
             }
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
                 Haptics.confirm(view)
+                // Track pending payment before opening UPI
+                PendingPaymentTracker.setPendingPayment(context, amount, transactionIds)
                 val intent = UpiHelper.createPaymentIntentForTransaction(context, amount, "Total Pending")
-                if (intent != null) {
-                    context.startActivity(intent)
-                    onPaymentInitiated()
-                }
+                intent?.let { context.startActivity(it) }
             }
             .padding(vertical = 20.dp),
         contentAlignment = Alignment.Center
@@ -284,7 +270,6 @@ private fun StatItem(label: String, value: String, valueColor: Color = Color.Whi
 private fun SwipeableTransactionRow(
     tx: Transaction,
     context: Context,
-    onPaymentInitiated: () -> Unit,
     onMarkUnpaid: (Long) -> Unit
 ) {
     val view = LocalView.current
@@ -325,11 +310,10 @@ private fun SwipeableTransactionRow(
                 Haptics.tick(view)
                 if (!tx.isPaid) {
                     Haptics.heavyClick(view)
+                    // Track single payment
+                    PendingPaymentTracker.setPendingPayment(context, tx.amount, listOf(tx.id))
                     val intent = UpiHelper.createPaymentIntentForTransaction(context, tx.amount, tx.merchant)
-                    if (intent != null) {
-                        context.startActivity(intent)
-                        onPaymentInitiated()
-                    }
+                    intent?.let { context.startActivity(it) }
                 }
             }
             .padding(vertical = 20.dp)

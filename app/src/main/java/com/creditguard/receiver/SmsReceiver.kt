@@ -5,7 +5,9 @@ import android.content.Context
 import android.content.Intent
 import android.provider.Telephony
 import com.creditguard.util.NotificationHelper
+import com.creditguard.util.PendingPaymentTracker
 import com.creditguard.util.SmsParser
+import com.creditguard.util.UpiDebitParser
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -23,6 +25,16 @@ class SmsReceiver : BroadcastReceiver() {
         
         if (sender.isBlank() || body.isBlank()) return
         
+        // First check if this is a UPI debit (payment confirmation)
+        if (UpiDebitParser.isUpiDebit(sender, body)) {
+            val amount = UpiDebitParser.extractAmount(body)
+            if (amount != null) {
+                PendingPaymentTracker.checkAndMarkPaid(context, amount)
+            }
+            return
+        }
+        
+        // Then check if it's a credit card transaction
         val transaction = SmsParser.parse(sender, body) ?: return
         
         CoroutineScope(Dispatchers.IO).launch {
