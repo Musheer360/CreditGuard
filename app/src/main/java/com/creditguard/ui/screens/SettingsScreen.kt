@@ -13,9 +13,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -42,12 +40,9 @@ fun SettingsScreen(onClearHistory: () -> Unit) {
     var upiId by remember { mutableStateOf(prefs.getString("vault_upi_id", "") ?: "") }
     var vaultName by remember { mutableStateOf(prefs.getString("vault_name", "") ?: "") }
     var saved by remember { mutableStateOf(false) }
-    var showClearConfirmation by remember { mutableStateOf(false) }
     
     val saveInteraction = remember { MutableInteractionSource() }
     val savePressed by saveInteraction.collectIsPressedAsState()
-    val clearInteraction = remember { MutableInteractionSource() }
-    val clearPressed by clearInteraction.collectIsPressedAsState()
     
     LaunchedEffect(saved) {
         if (saved) { delay(2000); saved = false }
@@ -55,37 +50,6 @@ fun SettingsScreen(onClearHistory: () -> Unit) {
     
     LaunchedEffect(savePressed) {
         if (savePressed) view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-    }
-    
-    LaunchedEffect(clearPressed) {
-        if (clearPressed) view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-    }
-    
-    if (showClearConfirmation) {
-        AlertDialog(
-            onDismissRequest = { showClearConfirmation = false },
-            title = { Text("Clear Transaction History", fontWeight = FontWeight.Medium) },
-            text = { Text("Are you sure you want to delete all transaction history? This action cannot be undone.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                        view.performHapticFeedback(HapticFeedbackConstants.REJECT)
-                    }
-                    onClearHistory()
-                    showClearConfirmation = false
-                }) {
-                    Text("Clear All", color = ErrorRed)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showClearConfirmation = false }) {
-                    Text("Cancel", color = SecondaryText)
-                }
-            },
-            containerColor = CardSurface,
-            titleContentColor = Color.White,
-            textContentColor = SecondaryText
-        )
     }
     
     Column(
@@ -156,34 +120,6 @@ fun SettingsScreen(onClearHistory: () -> Unit) {
         Spacer(Modifier.height(48.dp))
         
         Text("your data never leaves your device", color = TertiaryText, fontSize = 12.sp)
-        
-        Spacer(Modifier.height(48.dp))
-        
-        Text("data", color = TertiaryText, fontSize = 11.sp, letterSpacing = 1.sp)
-        Spacer(Modifier.height(16.dp))
-        
-        // Clear history button
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .scale(if (clearPressed) 0.98f else 1f)
-                .clip(CircleShape)
-                .border(1.dp, ErrorRed.copy(alpha = 0.5f), CircleShape)
-                .clickable(interactionSource = clearInteraction, indication = null) {
-                    view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
-                    showClearConfirmation = true
-                }
-                .padding(vertical = 20.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                "clear transaction history",
-                color = ErrorRed,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Medium,
-                letterSpacing = 1.sp
-            )
-        }
         
         Spacer(Modifier.height(32.dp))
     }
