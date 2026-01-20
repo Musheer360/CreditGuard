@@ -40,9 +40,10 @@ class SmsReceiver : BroadcastReceiver() {
         
         // Use goAsync() to properly handle async work in BroadcastReceiver
         // This prevents the system from killing our process during DB operations
+        // The pendingResult.finish() in finally ensures proper cleanup
         val pendingResult = goAsync()
         
-        // Use a scoped coroutine that properly completes the async work
+        // Launch coroutine for DB work - goAsync() extends receiver lifecycle until finish() is called
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val app = context.applicationContext as? CreditGuardApp

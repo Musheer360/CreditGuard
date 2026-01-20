@@ -37,8 +37,10 @@ class NotificationActionReceiver : BroadcastReceiver() {
         // Only mark as paid if activity was successfully launched
         if (activityLaunched) {
             // Use goAsync() to properly handle async work in BroadcastReceiver
+            // This extends the receiver lifecycle until finish() is called
             val pendingResult = goAsync()
             
+            // Launch coroutine for DB work - goAsync() ensures proper lifecycle management
             CoroutineScope(Dispatchers.IO).launch {
                 try {
                     val app = context.applicationContext as? CreditGuardApp
