@@ -9,7 +9,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,9 +36,40 @@ fun DashboardScreen(
     monthlySpend: Double,
     onPayClick: (Transaction) -> Unit,
     onMarkPaid: (Long) -> Unit,
+    onMarkUnpaid: (Long) -> Unit,
     onMarkAllPaid: () -> Unit
 ) {
     val context = LocalContext.current
+    
+    // State for confirmation dialogs
+    var showPayAllConfirmation by remember { mutableStateOf(false) }
+    var showSinglePayConfirmation by remember { mutableStateOf<Transaction?>(null) }
+    
+    // Confirmation dialog for "Pay All"
+    if (showPayAllConfirmation) {
+        ConfirmationDialog(
+            title = "Confirm Payment",
+            message = "Did you complete the payment of ₹${formatAmount(unpaidTotal)}?",
+            onConfirm = {
+                onMarkAllPaid()
+                showPayAllConfirmation = false
+            },
+            onDismiss = { showPayAllConfirmation = false }
+        )
+    }
+    
+    // Confirmation dialog for single transaction
+    showSinglePayConfirmation?.let { tx ->
+        ConfirmationDialog(
+            title = "Confirm Payment",
+            message = "Did you complete the payment of ₹${formatAmount(tx.amount)} for ${tx.merchant}?",
+            onConfirm = {
+                onMarkPaid(tx.id)
+                showSinglePayConfirmation = null
+            },
+            onDismiss = { showSinglePayConfirmation = null }
+        )
+    }
     
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -68,7 +101,7 @@ fun DashboardScreen(
                 PayButton(
                     amount = unpaidTotal,
                     context = context,
-                    onMarkAllPaid = onMarkAllPaid
+                    onPaymentInitiated = { showPayAllConfirmation = true }
                 )
                 Spacer(Modifier.height(48.dp))
             }
@@ -113,7 +146,8 @@ fun DashboardScreen(
                 TransactionRow(
                     tx = tx,
                     context = context,
-                    onMarkPaid = onMarkPaid
+                    onPaymentInitiated = { showSinglePayConfirmation = tx },
+                    onMarkUnpaid = onMarkUnpaid
                 )
                 if (index < displayedTransactions.size - 1) {
                     Spacer(Modifier.height(1.dp).fillMaxWidth().alpha(0.1f).background(Color.White))
@@ -126,7 +160,34 @@ fun DashboardScreen(
 }
 
 @Composable
-private fun PayButton(amount: Double, context: Context, onMarkAllPaid: () -> Unit) {
+private fun ConfirmationDialog(
+    title: String,
+    message: String,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title, fontWeight = FontWeight.Medium) },
+        text = { Text(message) },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text("Yes, Paid", color = Success)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("No", color = SecondaryText)
+            }
+        },
+        containerColor = CardBg,
+        titleContentColor = Color.White,
+        textContentColor = SecondaryText
+    )
+}
+
+@Composable
+private fun PayButton(amount: Double, context: Context, onPaymentInitiated: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -143,7 +204,7 @@ private fun PayButton(amount: Double, context: Context, onMarkAllPaid: () -> Uni
                 val intent = UpiHelper.createPaymentIntentForTransaction(context, amount, "Total Pending")
                 if (intent != null) {
                     context.startActivity(intent)
-                    onMarkAllPaid()
+                    onPaymentInitiated()
                 }
             }
             .padding(vertical = 20.dp),
@@ -179,7 +240,12 @@ private fun StatItem(label: String, value: String, valueColor: Color = Color.Whi
 }
 
 @Composable
-private fun TransactionRow(tx: Transaction, context: Context, onMarkPaid: (Long) -> Unit) {
+private fun TransactionRow(
+    tx: Transaction, 
+    context: Context, 
+    onPaymentInitiated: () -> Unit,
+    onMarkUnpaid: (Long) -> Unit
+) {
     val dateFormat = remember { SimpleDateFormat("dd MMM", Locale.getDefault()) }
     
     Row(
@@ -187,13 +253,18 @@ private fun TransactionRow(tx: Transaction, context: Context, onMarkPaid: (Long)
             .fillMaxWidth()
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                enabled = !tx.isPaid
+                indication = null
             ) {
-                val intent = UpiHelper.createPaymentIntentForTransaction(context, tx.amount, tx.merchant)
-                if (intent != null) {
-                    context.startActivity(intent)
-                    onMarkPaid(tx.id)
+                if (tx.isPaid) {
+                    // For paid transactions, allow unmarking
+                    onMarkUnpaid(tx.id)
+                } else {
+                    // For unpaid transactions, launch UPI and show confirmation
+                    val intent = UpiHelper.createPaymentIntentForTransaction(context, tx.amount, tx.merchant)
+                    if (intent != null) {
+                        context.startActivity(intent)
+                        onPaymentInitiated()
+                    }
                 }
             }
             .padding(vertical = 20.dp),
@@ -222,14 +293,12 @@ private fun TransactionRow(tx: Transaction, context: Context, onMarkPaid: (Long)
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Light
             )
-            if (!tx.isPaid) {
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    "tap to pay",
-                    color = TertiaryText,
-                    fontSize = 10.sp
-                )
-            }
+            Spacer(Modifier.height(2.dp))
+            Text(
+                if (tx.isPaid) "tap to unmark" else "tap to pay",
+                color = TertiaryText,
+                fontSize = 10.sp
+            )
         }
     }
 }
