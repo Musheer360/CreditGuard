@@ -6,34 +6,16 @@
     <!-- Credit card shape - rounded rectangle, centered -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M28,38
-                         L80,38
-                         Q84,38 84,42
-                         L84,66
-                         Q84,70 80,70
-                         L28,70
-                         Q24,70 24,66
-                         L24,42
-                         Q24,38 28,38
-                         Z"/>
+        android:pathData="M28,38 L80,38 Q84,38 84,42 L84,66 Q84,70 80,70 L28,70 Q24,70 24,66 L24,42 Q24,38 28,38 Z"/>
     <!-- Card magnetic stripe -->
     <path
         android:fillColor="#1A1A2E"
         android:pathData="M24,46 L84,46 L84,52 L24,52 Z"/>
-    <!-- Card chip - small rounded square -->
+    <!-- Card chip -->
     <path
         android:fillColor="#1A1A2E"
-        android:pathData="M32,56
-                         L44,56
-                         Q46,56 46,58
-                         L46,64
-                         Q46,66 44,66
-                         L32,66
-                         Q30,66 30,64
-                         L30,58
-                         Q30,56 32,56
-                         Z"/>
-    <!-- Chip detail lines -->
+        android:pathData="M32,56 L44,56 Q46,56 46,58 L46,64 Q46,66 44,66 L32,66 Q30,66 30,64 L30,58 Q30,56 32,56 Z"/>
+    <!-- Chip lines -->
     <path
         android:fillColor="#FFFFFF"
         android:pathData="M33,59 L43,59 L43,60 L33,60 Z"/>
@@ -43,5 +25,4 @@
     <path
         android:fillColor="#FFFFFF"
         android:pathData="M37,56 L39,56 L39,66 L37,66 Z"/>
-</vector>
 </vector>
