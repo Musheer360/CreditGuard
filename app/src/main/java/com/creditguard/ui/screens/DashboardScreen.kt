@@ -180,7 +180,7 @@ private fun ConfirmationDialog(
                 Text("No", color = SecondaryText)
             }
         },
-        containerColor = CardBg,
+        containerColor = CardSurface,
         titleContentColor = Color.White,
         textContentColor = SecondaryText
     )

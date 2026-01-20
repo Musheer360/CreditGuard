@@ -61,7 +61,7 @@ fun SettingsScreen(onClearHistory: () -> Unit) {
                     Text("Cancel", color = SecondaryText)
                 }
             },
-            containerColor = CardBg,
+            containerColor = CardSurface,
             titleContentColor = Color.White,
             textContentColor = SecondaryText
         )

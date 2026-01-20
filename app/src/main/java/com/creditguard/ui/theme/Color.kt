@@ -31,6 +31,3 @@ val WarningAmber = Color(0xFFFFB74D)
 val PrimaryText = Color(0xFFFFFFFF)
 val SecondaryText = Color(0xFFB0B0B0)
 val TertiaryText = Color(0xFF707070)
-
-// Alias for dialogs
-val CardBg = CardSurface
