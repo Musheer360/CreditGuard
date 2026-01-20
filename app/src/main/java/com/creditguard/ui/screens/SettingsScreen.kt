@@ -48,10 +48,6 @@ fun SettingsScreen(onClearHistory: () -> Unit) {
         if (saved) { delay(2000); saved = false }
     }
     
-    LaunchedEffect(savePressed) {
-        if (savePressed) view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-    }
-    
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -76,7 +72,7 @@ fun SettingsScreen(onClearHistory: () -> Unit) {
         
         Spacer(Modifier.height(48.dp))
         
-        // Save button
+        // Save button - haptic only on success
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -86,8 +82,6 @@ fun SettingsScreen(onClearHistory: () -> Unit) {
                 .clickable(interactionSource = saveInteraction, indication = null) {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                         view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
-                    } else {
-                        view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
                     }
                     prefs.edit()
                         .putString("vault_upi_id", upiId)

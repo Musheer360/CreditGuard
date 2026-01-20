@@ -13,11 +13,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -29,9 +29,9 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material3.Text
 import com.creditguard.data.model.Transaction
 import com.creditguard.ui.theme.*
 import com.creditguard.util.PendingPaymentTracker
@@ -41,34 +41,24 @@ import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.math.abs
 
-object Haptics {
-    fun tick(view: View) = view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
-    fun confirm(view: View) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
-        else view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-    }
-    fun reject(view: View) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) view.performHapticFeedback(HapticFeedbackConstants.REJECT)
-        else view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-    }
-    fun heavyClick(view: View) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_PRESS)
-        else view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-    }
-    fun dynamicSwipe(context: Context, progress: Float) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val vibrator = (context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager).defaultVibrator
-            vibrator.vibrate(VibrationEffect.createOneShot(10, (50 + progress * 200).toInt().coerceIn(1, 255)))
-        }
-    }
+// Minimal haptic helper - only for meaningful moments
+private object Haptics {
+    // Success: payment confirmed, save complete
     fun success(context: Context) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 (context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager).defaultVibrator
             } else {
                 @Suppress("DEPRECATION") context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
             }
-            vibrator.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 50, 100, 50), intArrayOf(0, 200, 0, 255), -1))
+            vibrator.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK))
+        }
+    }
+    
+    // Swipe threshold reached
+    fun threshold(view: View) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
         }
     }
 }
@@ -84,7 +74,6 @@ fun DashboardScreen(
     onMarkAllPaid: () -> Unit
 ) {
     val context = LocalContext.current
-    val view = LocalView.current
     
     // Check for payment success on resume
     var paymentSuccess by remember { mutableStateOf<PendingPaymentTracker.PaymentSuccess?>(null) }
@@ -194,26 +183,12 @@ private fun SuccessOverlay(amount: Double, count: Int, onDismiss: () -> Unit) {
         ) {
             Text("✓", fontSize = 72.sp, color = Success)
             Spacer(Modifier.height(24.dp))
-            Text(
-                "₹${formatAmount(amount)}",
-                fontSize = 40.sp,
-                fontWeight = FontWeight.Light,
-                color = Color.White
-            )
+            Text("₹${formatAmount(amount)}", fontSize = 40.sp, fontWeight = FontWeight.Light, color = Color.White)
             Spacer(Modifier.height(8.dp))
-            Text(
-                "set aside successfully",
-                fontSize = 16.sp,
-                color = SecondaryText,
-                letterSpacing = 1.sp
-            )
+            Text("set aside successfully", fontSize = 16.sp, color = SecondaryText, letterSpacing = 1.sp)
             if (count > 1) {
                 Spacer(Modifier.height(4.dp))
-                Text(
-                    "$count transactions marked as paid",
-                    fontSize = 13.sp,
-                    color = TertiaryText
-                )
+                Text("$count transactions marked as paid", fontSize = 13.sp, color = TertiaryText)
             }
         }
     }
@@ -221,8 +196,8 @@ private fun SuccessOverlay(amount: Double, count: Int, onDismiss: () -> Unit) {
 
 @Composable
 private fun PayButton(amount: Double, context: Context, transactionIds: List<Long>) {
-    val view = LocalView.current
-    var pressed by remember { mutableStateOf(false) }
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
     
     Box(
         modifier = Modifier
@@ -230,22 +205,7 @@ private fun PayButton(amount: Double, context: Context, transactionIds: List<Lon
             .scale(if (pressed) 0.98f else 1f)
             .clip(CircleShape)
             .background(Color.White)
-            .pointerInput(Unit) {
-                awaitPointerEventScope {
-                    while (true) {
-                        val event = awaitPointerEvent()
-                        if (event.changes.any { it.pressed } && !pressed) {
-                            pressed = true
-                            Haptics.heavyClick(view)
-                        } else if (event.changes.none { it.pressed } && pressed) {
-                            pressed = false
-                        }
-                    }
-                }
-            }
-            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
-                Haptics.confirm(view)
-                // Track pending payment before opening UPI
+            .clickable(interactionSource = interaction, indication = null) {
                 PendingPaymentTracker.setPendingPayment(context, amount, transactionIds)
                 val intent = UpiHelper.createPaymentIntentForTransaction(context, amount, "Total Pending")
                 intent?.let { context.startActivity(it) }
@@ -275,7 +235,7 @@ private fun SwipeableTransactionRow(
     val view = LocalView.current
     val dateFormat = remember { SimpleDateFormat("dd MMM", Locale.getDefault()) }
     var offsetX by remember { mutableFloatStateOf(0f) }
-    var lastHapticThreshold by remember { mutableIntStateOf(0) }
+    var didHaptic by remember { mutableStateOf(false) }
     
     Box(
         modifier = Modifier
@@ -284,33 +244,26 @@ private fun SwipeableTransactionRow(
             .pointerInput(tx.isPaid) {
                 if (tx.isPaid) {
                     detectHorizontalDragGestures(
-                        onDragStart = { lastHapticThreshold = 0 },
+                        onDragStart = { didHaptic = false },
                         onDragEnd = {
                             if (offsetX < -100) {
-                                Haptics.success(context)
                                 onMarkUnpaid(tx.id)
-                            } else {
-                                Haptics.tick(view)
                             }
                             offsetX = 0f
                         },
                         onHorizontalDrag = { _, dragAmount ->
                             offsetX = (offsetX + dragAmount / 3).coerceIn(-150f, 0f)
-                            val progress = abs(offsetX) / 150f
-                            val threshold = (progress * 5).toInt()
-                            if (threshold > lastHapticThreshold) {
-                                Haptics.dynamicSwipe(context, progress)
-                                lastHapticThreshold = threshold
+                            // Single haptic when threshold reached
+                            if (offsetX < -100 && !didHaptic) {
+                                Haptics.threshold(view)
+                                didHaptic = true
                             }
                         }
                     )
                 }
             }
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
-                Haptics.tick(view)
                 if (!tx.isPaid) {
-                    Haptics.heavyClick(view)
-                    // Track single payment
                     PendingPaymentTracker.setPendingPayment(context, tx.amount, listOf(tx.id))
                     val intent = UpiHelper.createPaymentIntentForTransaction(context, tx.amount, tx.merchant)
                     intent?.let { context.startActivity(it) }
