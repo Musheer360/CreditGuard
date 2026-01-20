@@ -23,9 +23,13 @@ class MainViewModel(private val dao: TransactionDao) : ViewModel() {
     
     fun markPaid(id: Long) = viewModelScope.launch { dao.markPaid(id) }
     
+    fun markUnpaid(id: Long) = viewModelScope.launch { dao.markUnpaid(id) }
+    
     fun markAllPaid() = viewModelScope.launch { dao.markAllPaid() }
     
     fun delete(transaction: Transaction) = viewModelScope.launch { dao.delete(transaction) }
+    
+    fun clearHistory() = viewModelScope.launch { dao.deleteAll() }
     
     private fun getMonthStart(): Long {
         return Calendar.getInstance().apply {

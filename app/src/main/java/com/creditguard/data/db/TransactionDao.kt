@@ -27,6 +27,12 @@ interface TransactionDao {
     @Query("UPDATE transactions SET isPaid = 1")
     suspend fun markAllPaid()
     
+    @Query("UPDATE transactions SET isPaid = 0 WHERE id = :id")
+    suspend fun markUnpaid(id: Long)
+    
+    @Query("DELETE FROM transactions")
+    suspend fun deleteAll()
+    
     @Delete
     suspend fun delete(transaction: Transaction)
 }

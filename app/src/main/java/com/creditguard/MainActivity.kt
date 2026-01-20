@@ -101,9 +101,12 @@ fun MainApp(viewModel: MainViewModel) {
                     monthlySpend = monthlySpend,
                     onPayClick = { },
                     onMarkPaid = viewModel::markPaid,
+                    onMarkUnpaid = viewModel::markUnpaid,
                     onMarkAllPaid = viewModel::markAllPaid
                 )
-                1 -> SettingsScreen()
+                1 -> SettingsScreen(
+                    onClearHistory = viewModel::clearHistory
+                )
             }
         }
         
