@@ -248,7 +248,8 @@ private fun SwipeableTransactionRow(
     val dateFormat = remember { SimpleDateFormat("dd MMM", Locale.getDefault()) }
     var offsetX by remember { mutableFloatStateOf(0f) }
     var didHaptic by remember { mutableStateOf(false) }
-    // Capture isPaid state at the start to avoid changes during gesture
+    // Capture isPaid state at the start to avoid state changes during an active gesture.
+    // This ensures consistent swipe behavior even if the underlying data changes mid-gesture.
     val isPaidState = tx.isPaid
     
     // Reset offset when isPaid changes (e.g., after marking unpaid)
