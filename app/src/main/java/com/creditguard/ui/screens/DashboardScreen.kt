@@ -189,7 +189,7 @@ private fun SuccessOverlay(amount: Double, count: Int, onDismiss: () -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.scale(scale.value)
         ) {
-            Text("✓", fontSize = 72.sp, color = Success)
+            Text("done", fontSize = 48.sp, color = Success, fontWeight = FontWeight.Light, letterSpacing = 2.sp)
             Spacer(Modifier.height(24.dp))
             Text("₹${formatAmount(amount)}", fontSize = 40.sp, fontWeight = FontWeight.Light, color = Color.White)
             Spacer(Modifier.height(8.dp))
