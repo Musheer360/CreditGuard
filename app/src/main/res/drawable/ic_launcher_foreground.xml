@@ -3,16 +3,20 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Credit card - centered, symmetric -->
+    <!-- Simple "C" lettermark - fits perfectly in safe zone (33-75) -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M22,38 L86,38 C88,38 90,40 90,42 L90,66 C90,68 88,70 86,70 L22,70 C20,70 18,68 18,66 L18,42 C18,40 20,38 22,38 Z"/>
-    <!-- Magnetic stripe - centered -->
-    <path
-        android:fillColor="#000000"
-        android:pathData="M18,46 L90,46 L90,52 L18,52 Z"/>
-    <!-- Chip - simple centered rectangle -->
-    <path
-        android:fillColor="#000000"
-        android:pathData="M26,56 L42,56 L42,66 L26,66 Z"/>
+        android:pathData="M54,33
+            C42,33 33,42 33,54
+            C33,66 42,75 54,75
+            C61,75 67,72 71,67
+            L71,67
+            L64,60
+            C62,63 58,65 54,65
+            C48,65 43,60 43,54
+            C43,48 48,43 54,43
+            C58,43 62,45 64,48
+            L71,41
+            C67,36 61,33 54,33
+            Z"/>
 </vector>
