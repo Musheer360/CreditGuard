@@ -23,8 +23,8 @@
                          C66,77 75,67 75,52
                          L75,36
                          Z"/>
-    <!-- Checkmark - properly centered and proportioned -->
+    <!-- Checkmark - centered at (54, 56) within shield -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M46,55 L52,61 L64,49 L67,52 L52,67 L43,58 Z"/>
+        android:pathData="M44,56 L51,63 L64,50 L67,53 L51,69 L41,59 Z"/>
 </vector>
