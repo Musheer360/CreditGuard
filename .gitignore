@@ -1,0 +1,21 @@
+# Gradle files
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Local configuration file
+local.properties
+
+# IntelliJ IDEA / Android Studio
+.idea/
+*.iml
+
+# OS-specific
+.DS_Store
+
+# APK files
+*.apk
+*.ap_
+
+# Build artifacts
+app/build/
