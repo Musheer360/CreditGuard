@@ -1,5 +1,10 @@
 package com.creditguard.ui.screens
 
+import android.os.Build
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
+import android.view.HapticFeedbackConstants
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -17,12 +22,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
-import android.view.HapticFeedbackConstants
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -40,19 +46,39 @@ fun SettingsScreen(onClearHistory: () -> Unit) {
     var vaultName by remember { mutableStateOf(prefs.getString("vault_name", "") ?: "") }
     var saved by remember { mutableStateOf(false) }
     var showClearConfirmation by remember { mutableStateOf(false) }
+    var savePressed by remember { mutableStateOf(false) }
+    var clearPressed by remember { mutableStateOf(false) }
+    
+    // Success haptic pattern
+    fun successHaptic() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val vibrator = (context.getSystemService(android.content.Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager).defaultVibrator
+            vibrator.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 30, 50, 30), intArrayOf(0, 150, 0, 200), -1))
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            @Suppress("DEPRECATION")
+            val vibrator = context.getSystemService(android.content.Context.VIBRATOR_SERVICE) as Vibrator
+            vibrator.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 30, 50, 30), intArrayOf(0, 150, 0, 200), -1))
+        }
+    }
     
     LaunchedEffect(saved) {
         if (saved) { delay(2000); saved = false }
     }
     
-    // Clear history confirmation dialog
     if (showClearConfirmation) {
+        view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
         AlertDialog(
-            onDismissRequest = { showClearConfirmation = false },
+            onDismissRequest = { 
+                view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                showClearConfirmation = false 
+            },
             title = { Text("Clear Transaction History", fontWeight = FontWeight.Medium) },
             text = { Text("Are you sure you want to delete all transaction history? This action cannot be undone.") },
             confirmButton = {
                 TextButton(onClick = {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                        view.performHapticFeedback(HapticFeedbackConstants.REJECT)
+                    }
                     onClearHistory()
                     showClearConfirmation = false
                 }) {
@@ -60,7 +86,10 @@ fun SettingsScreen(onClearHistory: () -> Unit) {
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showClearConfirmation = false }) {
+                TextButton(onClick = { 
+                    view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                    showClearConfirmation = false 
+                }) {
                     Text("Cancel", color = SecondaryText)
                 }
             },
@@ -84,26 +113,48 @@ fun SettingsScreen(onClearHistory: () -> Unit) {
         
         Text("upi id", color = TertiaryText, fontSize = 11.sp, letterSpacing = 1.sp)
         Spacer(Modifier.height(12.dp))
-        MinimalTextField(value = upiId, onValueChange = { upiId = it }, placeholder = "yourname@upi")
+        MinimalTextField(value = upiId, onValueChange = { 
+            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+            upiId = it 
+        }, placeholder = "yourname@upi")
         
         Spacer(Modifier.height(32.dp))
         
         Text("payee name", color = TertiaryText, fontSize = 11.sp, letterSpacing = 1.sp)
         Spacer(Modifier.height(12.dp))
-        MinimalTextField(value = vaultName, onValueChange = { vaultName = it }, placeholder = "Savings Account")
+        MinimalTextField(value = vaultName, onValueChange = { 
+            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+            vaultName = it 
+        }, placeholder = "Savings Account")
         
         Spacer(Modifier.height(48.dp))
         
         Box(
             modifier = Modifier
                 .fillMaxWidth()
+                .scale(if (savePressed) 0.98f else 1f)
                 .clip(CircleShape)
                 .background(if (saved) Success else Color.White)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null
-                ) {
-                    view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
+                .pointerInput(Unit) {
+                    awaitPointerEventScope {
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            when {
+                                event.changes.any { it.pressed } && !savePressed -> {
+                                    savePressed = true
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+                                        view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_PRESS)
+                                    }
+                                }
+                                event.changes.none { it.pressed } && savePressed -> {
+                                    savePressed = false
+                                }
+                            }
+                        }
+                    }
+                }
+                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
+                    successHaptic()
                     prefs.edit()
                         .putString("vault_upi_id", upiId)
                         .putString("vault_name", vaultName)
@@ -138,19 +189,33 @@ fun SettingsScreen(onClearHistory: () -> Unit) {
         
         Spacer(Modifier.height(48.dp))
         
-        // Clear History button
         Text("data", color = TertiaryText, fontSize = 11.sp, letterSpacing = 1.sp)
         Spacer(Modifier.height(16.dp))
         
         Box(
             modifier = Modifier
                 .fillMaxWidth()
+                .scale(if (clearPressed) 0.98f else 1f)
                 .clip(CircleShape)
                 .border(1.dp, ErrorRed.copy(alpha = 0.5f), CircleShape)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null
-                ) {
+                .pointerInput(Unit) {
+                    awaitPointerEventScope {
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            when {
+                                event.changes.any { it.pressed } && !clearPressed -> {
+                                    clearPressed = true
+                                    view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                                }
+                                event.changes.none { it.pressed } && clearPressed -> {
+                                    clearPressed = false
+                                }
+                            }
+                        }
+                    }
+                }
+                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
+                    view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
                     showClearConfirmation = true
                 }
                 .padding(vertical = 20.dp),

@@ -129,6 +129,8 @@ fun MainApp(viewModel: MainViewModel) {
 @Composable
 fun MinimalNavItem(label: String, selected: Boolean, onClick: () -> Unit) {
     val view = LocalView.current
+    var pressed by remember { mutableStateOf(false) }
+    
     Text(
         text = label,
         color = if (selected) Color.White else SecondaryText,
@@ -139,7 +141,11 @@ fun MinimalNavItem(label: String, selected: Boolean, onClick: () -> Unit) {
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
                 onClick = {
-                    view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                        view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
+                    } else {
+                        view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                    }
                     onClick()
                 }
             )
