@@ -24,6 +24,13 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".PaymentLauncherActivity"
+            android:exported="false"
+            android:theme="@style/Theme.CreditGuard.Transparent"
+            android:excludeFromRecents="true"
+            android:noHistory="true" />
+
         <receiver
             android:name=".receiver.SmsReceiver"
             android:exported="true"

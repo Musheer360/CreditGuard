@@ -6,6 +6,7 @@ import androidx.compose.ui.graphics.Color
 val PureBlack = Color(0xFF000000)
 val SurfaceBlack = Color(0xFF0A0A0A)
 val CardSurface = Color(0xFF111111)
+val CardBackground = Color(0xFF1A1A1A)
 val ElevatedSurface = Color(0xFF1A1A1A)
 
 // Premium Accents
