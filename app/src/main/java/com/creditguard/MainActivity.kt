@@ -104,7 +104,8 @@ fun MainApp(viewModel: MainViewModel) {
                     onPayClick = { },
                     onMarkPaid = viewModel::markPaid,
                     onMarkUnpaid = viewModel::markUnpaid,
-                    onMarkAllPaid = viewModel::markAllPaid
+                    onMarkAllPaid = viewModel::markAllPaid,
+                    onDelete = viewModel::delete
                 )
                 1 -> SettingsScreen(
                     onClearHistory = viewModel::clearHistory

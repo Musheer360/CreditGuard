@@ -12,12 +12,14 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -31,6 +33,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.compose.material3.Text
 import com.creditguard.data.model.Transaction
 import com.creditguard.ui.theme.*
@@ -69,6 +72,17 @@ private object Haptics {
             // Ignore haptic failures - non-critical
         }
     }
+    
+    // Long press detected
+    fun longPress(view: View) {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+            }
+        } catch (_: Exception) {
+            // Ignore haptic failures - non-critical
+        }
+    }
 }
 
 @Composable
@@ -79,12 +93,16 @@ fun DashboardScreen(
     onPayClick: (Transaction) -> Unit,
     onMarkPaid: (Long) -> Unit,
     onMarkUnpaid: (Long) -> Unit,
-    onMarkAllPaid: () -> Unit
+    onMarkAllPaid: () -> Unit,
+    onDelete: ((Transaction) -> Unit)? = null
 ) {
     val context = LocalContext.current
     
     // Check for payment success on resume
     var paymentSuccess by remember { mutableStateOf<PendingPaymentTracker.PaymentSuccess?>(null) }
+    
+    // State for delete confirmation dialog
+    var transactionToDelete by remember { mutableStateOf<Transaction?>(null) }
     
     LaunchedEffect(Unit) {
         paymentSuccess = PendingPaymentTracker.getAndClearSuccess(context)
@@ -99,6 +117,18 @@ fun DashboardScreen(
             amount = paymentSuccess!!.amount,
             count = paymentSuccess!!.count,
             onDismiss = { paymentSuccess = null }
+        )
+    }
+    
+    // Delete confirmation dialog
+    if (transactionToDelete != null) {
+        DeleteConfirmationDialog(
+            transaction = transactionToDelete!!,
+            onConfirm = {
+                onDelete?.invoke(transactionToDelete!!)
+                transactionToDelete = null
+            },
+            onDismiss = { transactionToDelete = null }
         )
     }
     
@@ -152,7 +182,9 @@ fun DashboardScreen(
                 SwipeableTransactionRow(
                     tx = tx,
                     context = context,
-                    onMarkUnpaid = onMarkUnpaid
+                    onMarkPaid = onMarkPaid,
+                    onMarkUnpaid = onMarkUnpaid,
+                    onLongPress = { transactionToDelete = tx }
                 )
                 if (index < displayedTransactions.size - 1) {
                     Spacer(Modifier.height(1.dp).fillMaxWidth().alpha(0.1f).background(Color.White))
@@ -161,6 +193,68 @@ fun DashboardScreen(
         }
         
         item { Spacer(Modifier.height(32.dp)) }
+    }
+}
+
+@Composable
+private fun DeleteConfirmationDialog(
+    transaction: Transaction,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .clip(RoundedCornerShape(16.dp))
+                .background(CardBackground)
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                "Delete Transaction?",
+                color = Color.White,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Medium
+            )
+            Spacer(Modifier.height(16.dp))
+            Text(
+                "₹${formatAmount(transaction.amount)} at ${transaction.merchant}",
+                color = SecondaryText,
+                fontSize = 14.sp
+            )
+            Spacer(Modifier.height(24.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Cancel button
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color.White.copy(alpha = 0.1f))
+                        .clickable { onDismiss() }
+                        .padding(vertical = 14.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("Cancel", color = SecondaryText, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                }
+                // Delete button
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(ErrorRed)
+                        .clickable {
+                            onConfirm()
+                        }
+                        .padding(vertical = 14.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("Delete", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                }
+            }
+        }
     }
 }
 
@@ -242,7 +336,9 @@ private fun StatItem(label: String, value: String, valueColor: Color = Color.Whi
 private fun SwipeableTransactionRow(
     tx: Transaction,
     context: Context,
-    onMarkUnpaid: (Long) -> Unit
+    onMarkPaid: (Long) -> Unit,
+    onMarkUnpaid: (Long) -> Unit,
+    onLongPress: () -> Unit
 ) {
     val view = LocalView.current
     val dateFormat = remember { SimpleDateFormat("dd MMM", Locale.getDefault()) }
@@ -270,9 +366,12 @@ private fun SwipeableTransactionRow(
                     },
                     onDragEnd = {
                         try {
-                            // Only process swipe-to-unmark if the transaction is paid
                             if (isPaidState && offsetX < -100) {
+                                // Swipe left on paid transaction: mark as unpaid
                                 onMarkUnpaid(tx.id)
+                            } else if (!isPaidState && offsetX > 100) {
+                                // Swipe right on unpaid transaction: mark as paid
+                                onMarkPaid(tx.id)
                             }
                         } catch (_: Exception) {
                             // Ignore any errors during swipe action
@@ -284,11 +383,19 @@ private fun SwipeableTransactionRow(
                         offsetX = 0f
                     },
                     onHorizontalDrag = { _, dragAmount ->
-                        // Only allow left swipe for paid transactions
                         if (isPaidState) {
+                            // Paid: only allow left swipe (to unmark)
                             offsetX = (offsetX + dragAmount / 3).coerceIn(-150f, 0f)
                             // Single haptic when threshold reached
                             if (offsetX < -100 && !didHaptic) {
+                                Haptics.threshold(view)
+                                didHaptic = true
+                            }
+                        } else {
+                            // Unpaid: only allow right swipe (to mark as paid)
+                            offsetX = (offsetX + dragAmount / 3).coerceIn(0f, 150f)
+                            // Single haptic when threshold reached
+                            if (offsetX > 100 && !didHaptic) {
                                 Haptics.threshold(view)
                                 didHaptic = true
                             }
@@ -296,16 +403,24 @@ private fun SwipeableTransactionRow(
                     }
                 )
             }
-            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
-                if (!tx.isPaid) {
-                    try {
-                        PendingPaymentTracker.setPendingPayment(context, tx.amount, listOf(tx.id))
-                        val intent = UpiHelper.createPaymentIntentForTransaction(context, tx.amount, tx.merchant)
-                        intent?.let { context.startActivity(it) }
-                    } catch (_: Exception) {
-                        // Handle case where no UPI app is available or activity fails to start
+            .pointerInput(tx.id) {
+                detectTapGestures(
+                    onLongPress = {
+                        Haptics.longPress(view)
+                        onLongPress()
+                    },
+                    onTap = {
+                        if (!tx.isPaid) {
+                            try {
+                                PendingPaymentTracker.setPendingPayment(context, tx.amount, listOf(tx.id))
+                                val intent = UpiHelper.createPaymentIntentForTransaction(context, tx.amount, tx.merchant)
+                                intent?.let { context.startActivity(it) }
+                            } catch (_: Exception) {
+                                // Handle case where no UPI app is available or activity fails to start
+                            }
+                        }
                     }
-                }
+                )
             }
             .padding(vertical = 20.dp)
     ) {
@@ -318,7 +433,11 @@ private fun SwipeableTransactionRow(
             Column(horizontalAlignment = Alignment.End) {
                 Text("₹${formatAmount(tx.amount)}", color = if (tx.isPaid) Success else Color.White, fontSize = 18.sp, fontWeight = FontWeight.Light)
                 Spacer(Modifier.height(2.dp))
-                Text(if (tx.isPaid) "← swipe to unmark" else "tap to pay", color = TertiaryText, fontSize = 10.sp)
+                Text(
+                    if (tx.isPaid) "← swipe to unmark" else "swipe → to mark paid",
+                    color = TertiaryText,
+                    fontSize = 10.sp
+                )
             }
         }
     }
