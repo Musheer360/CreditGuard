@@ -202,56 +202,108 @@ private fun DeleteConfirmationDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    val dialogScale = remember { Animatable(0.9f) }
+    val dialogAlpha = remember { Animatable(0f) }
+    
+    LaunchedEffect(Unit) {
+        dialogAlpha.animateTo(1f, tween(200))
+        dialogScale.animateTo(1f, spring(dampingRatio = 0.7f, stiffness = 400f))
+    }
+    
     Dialog(onDismissRequest = onDismiss) {
-        Column(
+        Box(
             modifier = Modifier
-                .clip(RoundedCornerShape(16.dp))
-                .background(CardBackground)
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .scale(dialogScale.value)
+                .alpha(dialogAlpha.value)
+                .clip(RoundedCornerShape(24.dp))
+                .background(SurfaceBlack)
+                .padding(28.dp),
+            contentAlignment = Alignment.Center
         ) {
-            Text(
-                "Delete Transaction?",
-                color = Color.White,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Medium
-            )
-            Spacer(Modifier.height(16.dp))
-            Text(
-                "₹${formatAmount(transaction.amount)} at ${transaction.merchant}",
-                color = SecondaryText,
-                fontSize = 14.sp
-            )
-            Spacer(Modifier.height(24.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Cancel button
+                // Icon
                 Box(
                     modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color.White.copy(alpha = 0.1f))
-                        .clickable { onDismiss() }
-                        .padding(vertical = 14.dp),
+                        .size(56.dp)
+                        .clip(CircleShape)
+                        .background(ErrorRed.copy(alpha = 0.15f)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("Cancel", color = SecondaryText, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                    Text("×", color = ErrorRed, fontSize = 28.sp, fontWeight = FontWeight.Light)
                 }
-                // Delete button
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(ErrorRed)
-                        .clickable {
-                            onConfirm()
-                        }
-                        .padding(vertical = 14.dp),
-                    contentAlignment = Alignment.Center
+                
+                Spacer(Modifier.height(20.dp))
+                
+                Text(
+                    "delete transaction?",
+                    color = Color.White,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Normal,
+                    letterSpacing = 0.5.sp
+                )
+                
+                Spacer(Modifier.height(12.dp))
+                
+                Text(
+                    "₹${formatAmount(transaction.amount)} · ${transaction.merchant}",
+                    color = SecondaryText,
+                    fontSize = 14.sp,
+                    letterSpacing = 0.3.sp
+                )
+                
+                Spacer(Modifier.height(8.dp))
+                
+                Text(
+                    "this action cannot be undone",
+                    color = TertiaryText,
+                    fontSize = 12.sp
+                )
+                
+                Spacer(Modifier.height(28.dp))
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Text("Delete", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                    // Cancel button
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(CardBackground)
+                            .clickable { onDismiss() }
+                            .padding(vertical = 16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            "cancel",
+                            color = SecondaryText,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            letterSpacing = 0.5.sp
+                        )
+                    }
+                    
+                    // Delete button
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(ErrorRed.copy(alpha = 0.9f))
+                            .clickable { onConfirm() }
+                            .padding(vertical = 16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            "delete",
+                            color = Color.White,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            letterSpacing = 0.5.sp
+                        )
+                    }
                 }
             }
         }
@@ -260,12 +312,14 @@ private fun DeleteConfirmationDialog(
 
 @Composable
 private fun SuccessOverlay(amount: Double, count: Int, onDismiss: () -> Unit) {
-    val scale = remember { Animatable(0f) }
+    val scale = remember { Animatable(0.9f) }
     val alpha = remember { Animatable(0f) }
+    val contentAlpha = remember { Animatable(0f) }
     
     LaunchedEffect(Unit) {
         alpha.animateTo(1f, tween(200))
-        scale.animateTo(1f, spring(dampingRatio = 0.6f, stiffness = 300f))
+        scale.animateTo(1f, spring(dampingRatio = 0.7f, stiffness = 400f))
+        contentAlpha.animateTo(1f, tween(300, delayMillis = 100))
         delay(2500)
         alpha.animateTo(0f, tween(300))
         onDismiss()
@@ -275,22 +329,72 @@ private fun SuccessOverlay(amount: Double, count: Int, onDismiss: () -> Unit) {
         modifier = Modifier
             .fillMaxSize()
             .alpha(alpha.value)
-            .background(PureBlack.copy(alpha = 0.95f))
+            .background(PureBlack.copy(alpha = 0.97f))
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { },
         contentAlignment = Alignment.Center
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.scale(scale.value)
+            modifier = Modifier
+                .scale(scale.value)
+                .alpha(contentAlpha.value)
         ) {
-            Text("done", fontSize = 48.sp, color = Success, fontWeight = FontWeight.Light, letterSpacing = 2.sp)
+            // Success icon
+            Box(
+                modifier = Modifier
+                    .size(80.dp)
+                    .clip(CircleShape)
+                    .background(Success.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("✓", fontSize = 36.sp, color = Success, fontWeight = FontWeight.Light)
+            }
+            
+            Spacer(Modifier.height(32.dp))
+            
+            Text(
+                "done",
+                fontSize = 32.sp,
+                color = Color.White,
+                fontWeight = FontWeight.Light,
+                letterSpacing = 2.sp
+            )
+            
             Spacer(Modifier.height(24.dp))
-            Text("₹${formatAmount(amount)}", fontSize = 40.sp, fontWeight = FontWeight.Light, color = Color.White)
-            Spacer(Modifier.height(8.dp))
-            Text("set aside successfully", fontSize = 16.sp, color = SecondaryText, letterSpacing = 1.sp)
+            
+            Text(
+                "₹${formatAmount(amount)}",
+                fontSize = 48.sp,
+                fontWeight = FontWeight.Light,
+                color = Color.White,
+                letterSpacing = (-1).sp
+            )
+            
+            Spacer(Modifier.height(12.dp))
+            
+            Text(
+                "set aside successfully",
+                fontSize = 14.sp,
+                color = SecondaryText,
+                letterSpacing = 1.sp
+            )
+            
             if (count > 1) {
-                Spacer(Modifier.height(4.dp))
-                Text("$count transactions marked as paid", fontSize = 13.sp, color = TertiaryText)
+                Spacer(Modifier.height(8.dp))
+                
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(CardBackground)
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                ) {
+                    Text(
+                        "$count transactions marked as paid",
+                        fontSize = 12.sp,
+                        color = TertiaryText,
+                        letterSpacing = 0.5.sp
+                    )
+                }
             }
         }
     }
