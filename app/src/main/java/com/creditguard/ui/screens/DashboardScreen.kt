@@ -34,6 +34,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import com.creditguard.data.model.Transaction
 import com.creditguard.ui.theme.*
@@ -231,7 +235,12 @@ private fun DeleteConfirmationDialog(
                         .background(ErrorRed.copy(alpha = 0.15f)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("×", color = ErrorRed, fontSize = 28.sp, fontWeight = FontWeight.Light)
+                    Icon(
+                        imageVector = Icons.Rounded.Close,
+                        contentDescription = "Delete",
+                        tint = ErrorRed,
+                        modifier = Modifier.size(28.dp)
+                    )
                 }
                 
                 Spacer(Modifier.height(20.dp))
@@ -347,7 +356,12 @@ private fun SuccessOverlay(amount: Double, count: Int, onDismiss: () -> Unit) {
                     .background(Success.copy(alpha = 0.15f)),
                 contentAlignment = Alignment.Center
             ) {
-                Text("✓", fontSize = 36.sp, color = Success, fontWeight = FontWeight.Light)
+                Icon(
+                    imageVector = Icons.Rounded.Check,
+                    contentDescription = "Success",
+                    tint = Success,
+                    modifier = Modifier.size(40.dp)
+                )
             }
             
             Spacer(Modifier.height(32.dp))
@@ -366,8 +380,7 @@ private fun SuccessOverlay(amount: Double, count: Int, onDismiss: () -> Unit) {
                 "₹${formatAmount(amount)}",
                 fontSize = 48.sp,
                 fontWeight = FontWeight.Light,
-                color = Color.White,
-                letterSpacing = (-1).sp
+                color = Color.White
             )
             
             Spacer(Modifier.height(12.dp))
