@@ -25,6 +25,8 @@ object NotificationHelper {
     }
     
     fun showTransactionNotification(context: Context, transaction: Transaction) {
+        val notifyId = (transaction.id % Int.MAX_VALUE).toInt()
+        
         // Tapping notification directly opens UPI payment via PaymentLauncherActivity
         val payIntent = Intent(context, PaymentLauncherActivity::class.java).apply {
             putExtra("transaction_id", transaction.id)
@@ -33,7 +35,7 @@ object NotificationHelper {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
         val payPending = PendingIntent.getActivity(
-            context, transaction.id.toInt(), payIntent,
+            context, notifyId, payIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         
@@ -49,6 +51,6 @@ object NotificationHelper {
             .build()
         
         context.getSystemService(NotificationManager::class.java)
-            .notify(transaction.id.toInt(), notification)
+            .notify(notifyId, notification)
     }
 }
