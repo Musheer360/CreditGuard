@@ -21,7 +21,9 @@ jobs:
           cache: gradle
 
       - name: Build debug APK
-        run: chmod +x gradlew && ./gradlew assembleDebug
+        run: chmod +x gradlew && ./gradlew assembleDebug --parallel --build-cache --no-daemon
+        env:
+          GRADLE_OPTS: -Dorg.gradle.jvmargs="-Xmx2g -XX:+UseParallelGC"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
