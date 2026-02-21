@@ -461,9 +461,9 @@ private fun SwipeableTransactionRow(
     val dateFormat = remember { SimpleDateFormat("dd MMM", Locale.getDefault()) }
     var offsetX by remember { mutableFloatStateOf(0f) }
     var didHaptic by remember { mutableStateOf(false) }
-    // Capture isPaid state at the start to avoid state changes during an active gesture.
-    // This ensures consistent swipe behavior even if the underlying data changes mid-gesture.
-    val isPaidState = tx.isPaid
+    // Use rememberUpdatedState so the gesture handler always reads the latest isPaid value
+    // without recreating the pointerInput (which would cancel in-progress gestures).
+    val currentIsPaid by rememberUpdatedState(tx.isPaid)
     
     // Reset offset when isPaid changes (e.g., after marking unpaid)
     LaunchedEffect(tx.isPaid) {
@@ -483,10 +483,10 @@ private fun SwipeableTransactionRow(
                     },
                     onDragEnd = {
                         try {
-                            if (isPaidState && offsetX < -100) {
+                            if (currentIsPaid && offsetX < -100) {
                                 // Swipe left on paid transaction: mark as unpaid
                                 onMarkUnpaid(tx.id)
-                            } else if (!isPaidState && offsetX > 100) {
+                            } else if (!currentIsPaid && offsetX > 100) {
                                 // Swipe right on unpaid transaction: mark as paid
                                 onMarkPaid(tx.id)
                             }
@@ -500,7 +500,7 @@ private fun SwipeableTransactionRow(
                         offsetX = 0f
                     },
                     onHorizontalDrag = { _, dragAmount ->
-                        if (isPaidState) {
+                        if (currentIsPaid) {
                             // Paid: only allow left swipe (to unmark)
                             offsetX = (offsetX + dragAmount / 3).coerceIn(-150f, 0f)
                             // Single haptic when threshold reached
@@ -527,7 +527,7 @@ private fun SwipeableTransactionRow(
                         onLongPress()
                     },
                     onTap = {
-                        if (!tx.isPaid) {
+                        if (!currentIsPaid) {
                             try {
                                 PendingPaymentTracker.setPendingPayment(context, tx.amount, listOf(tx.id))
                                 val intent = UpiHelper.createPaymentIntentForTransaction(context, tx.amount, tx.merchant)

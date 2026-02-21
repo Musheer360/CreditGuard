@@ -20,7 +20,7 @@ object PendingPaymentTracker {
     
     fun setPendingPayment(context: Context, amount: Double, transactionIds: List<Long>) {
         getPrefs(context).edit()
-            .putFloat(KEY_AMOUNT, amount.toFloat())
+            .putString(KEY_AMOUNT, amount.toString())
             .putLong(KEY_TIMESTAMP, System.currentTimeMillis())
             .putString(KEY_TX_IDS, transactionIds.joinToString(","))
             .apply()
@@ -33,8 +33,8 @@ object PendingPaymentTracker {
             clear(context)
             return null
         }
-        val amount = prefs.getFloat(KEY_AMOUNT, 0f)
-        return if (amount > 0) amount.toDouble() else null
+        val amount = prefs.getString(KEY_AMOUNT, null)?.toDoubleOrNull() ?: 0.0
+        return if (amount > 0) amount else null
     }
     
     fun getPendingTransactionIds(context: Context): List<Long> {
@@ -77,7 +77,7 @@ object PendingPaymentTracker {
                         context.applicationContext.getSharedPreferences("payment_success", Context.MODE_PRIVATE)
                             .edit()
                             .putBoolean("show_success", true)
-                            .putFloat("amount", debitedAmount.toFloat())
+                            .putString("amount", debitedAmount.toString())
                             .putInt("count", txIds.size)
                             .apply()
                     } catch (_: Exception) {
@@ -98,7 +98,7 @@ object PendingPaymentTracker {
         if (!prefs.getBoolean("show_success", false)) return null
         
         val success = PaymentSuccess(
-            amount = prefs.getFloat("amount", 0f).toDouble(),
+            amount = prefs.getString("amount", "0")?.toDoubleOrNull() ?: 0.0,
             count = prefs.getInt("count", 0)
         )
         prefs.edit().clear().apply()

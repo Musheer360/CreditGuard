@@ -4,9 +4,6 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import com.creditguard.util.PendingPaymentTracker
 import com.creditguard.util.UpiHelper
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 
 /**
  * Transparent activity that launches UPI payment directly from notification tap.
@@ -30,16 +27,6 @@ class PaymentLauncherActivity : ComponentActivity() {
             if (payIntent != null) {
                 try {
                     startActivity(payIntent)
-                    
-                    // Mark as paid since UPI app was launched
-                    CoroutineScope(Dispatchers.IO).launch {
-                        try {
-                            val app = applicationContext as? CreditGuardApp
-                            app?.database?.transactionDao()?.markPaid(transactionId)
-                        } catch (_: Exception) {
-                            // Ignore DB errors
-                        }
-                    }
                 } catch (_: Exception) {
                     // If UPI app launch fails, open main app as fallback
                     startMainActivity()
