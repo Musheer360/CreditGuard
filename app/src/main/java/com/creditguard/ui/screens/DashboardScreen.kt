@@ -28,6 +28,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
@@ -50,10 +51,8 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.abs
 
-private val recentDateFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("dd MMM", Locale.getDefault())
-
-private fun formatRecentDate(timestamp: Long): String =
-    Instant.ofEpochMilli(timestamp).atZone(ZoneId.systemDefault()).toLocalDate().format(recentDateFormatter)
+private fun formatRecentDate(timestamp: Long, formatter: DateTimeFormatter): String =
+    Instant.ofEpochMilli(timestamp).atZone(ZoneId.systemDefault()).toLocalDate().format(formatter)
 
 // Minimal haptic helper - only for meaningful moments
 private object Haptics {
@@ -108,6 +107,9 @@ fun DashboardScreen(
     onDelete: ((Transaction) -> Unit)? = null
 ) {
     val context = LocalContext.current
+    val locales = LocalConfiguration.current.locales
+    val currentLocale = if (locales.isEmpty) Locale.getDefault() else locales[0]
+    val dateFormatter = remember(currentLocale) { DateTimeFormatter.ofPattern("dd MMM", currentLocale) }
     
     // Check for payment success on resume
     var paymentSuccess by remember { mutableStateOf<PendingPaymentTracker.PaymentSuccess?>(null) }
@@ -115,7 +117,7 @@ fun DashboardScreen(
     // State for delete confirmation dialog
     var transactionToDelete by remember { mutableStateOf<Transaction?>(null) }
     val unpaidTransactionIds = remember(transactions) {
-        transactions.asSequence().filter { !it.isPaid }.map { it.id }.toList()
+        transactions.mapNotNull { if (it.isPaid) null else it.id }
     }
     val displayedTransactions = remember(transactions) {
         if (transactions.size <= 20) transactions else transactions.take(20)
@@ -197,6 +199,7 @@ fun DashboardScreen(
             itemsIndexed(displayedTransactions, key = { _, tx -> tx.id }) { index, tx ->
                 SwipeableTransactionRow(
                     tx = tx,
+                    dateFormatter = dateFormatter,
                     context = context,
                     onMarkPaid = onMarkPaid,
                     onMarkUnpaid = onMarkUnpaid,
@@ -464,13 +467,14 @@ private fun StatItem(label: String, value: String, valueColor: Color = Color.Whi
 @Composable
 private fun SwipeableTransactionRow(
     tx: Transaction,
+    dateFormatter: DateTimeFormatter,
     context: Context,
     onMarkPaid: (Long) -> Unit,
     onMarkUnpaid: (Long) -> Unit,
     onLongPress: () -> Unit
 ) {
     val view = LocalView.current
-    val formattedDate = remember(tx.timestamp) { formatRecentDate(tx.timestamp) }
+    val formattedDate = remember(tx.timestamp, dateFormatter) { formatRecentDate(tx.timestamp, dateFormatter) }
     var offsetX by remember { mutableFloatStateOf(0f) }
     var didHaptic by remember { mutableStateOf(false) }
     // Use rememberUpdatedState so the gesture handler always reads the latest isPaid value
