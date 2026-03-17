@@ -44,9 +44,16 @@ import com.creditguard.ui.theme.*
 import com.creditguard.util.PendingPaymentTracker
 import com.creditguard.util.UpiHelper
 import kotlinx.coroutines.delay
-import java.text.SimpleDateFormat
-import java.util.*
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 import kotlin.math.abs
+
+private val recentDateFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("dd MMM", Locale.getDefault())
+
+private fun formatRecentDate(timestamp: Long): String =
+    Instant.ofEpochMilli(timestamp).atZone(ZoneId.systemDefault()).toLocalDate().format(recentDateFormatter)
 
 // Minimal haptic helper - only for meaningful moments
 private object Haptics {
@@ -107,6 +114,12 @@ fun DashboardScreen(
     
     // State for delete confirmation dialog
     var transactionToDelete by remember { mutableStateOf<Transaction?>(null) }
+    val unpaidTransactionIds = remember(transactions) {
+        transactions.asSequence().filter { !it.isPaid }.map { it.id }.toList()
+    }
+    val displayedTransactions = remember(transactions) {
+        if (transactions.size <= 20) transactions else transactions.take(20)
+    }
     
     LaunchedEffect(Unit) {
         paymentSuccess = PendingPaymentTracker.getAndClearSuccess(context)
@@ -159,7 +172,7 @@ fun DashboardScreen(
                 PayButton(
                     amount = unpaidTotal,
                     context = context,
-                    transactionIds = transactions.filter { !it.isPaid }.map { it.id }
+                    transactionIds = unpaidTransactionIds
                 )
                 Spacer(Modifier.height(48.dp))
             }
@@ -181,7 +194,6 @@ fun DashboardScreen(
         if (transactions.isEmpty()) {
             item { EmptyState() }
         } else {
-            val displayedTransactions = transactions.take(20)
             itemsIndexed(displayedTransactions, key = { _, tx -> tx.id }) { index, tx ->
                 SwipeableTransactionRow(
                     tx = tx,
@@ -458,7 +470,7 @@ private fun SwipeableTransactionRow(
     onLongPress: () -> Unit
 ) {
     val view = LocalView.current
-    val dateFormat = remember { SimpleDateFormat("dd MMM", Locale.getDefault()) }
+    val formattedDate = remember(tx.timestamp) { formatRecentDate(tx.timestamp) }
     var offsetX by remember { mutableFloatStateOf(0f) }
     var didHaptic by remember { mutableStateOf(false) }
     // Use rememberUpdatedState so the gesture handler always reads the latest isPaid value
@@ -545,7 +557,7 @@ private fun SwipeableTransactionRow(
             Column(Modifier.weight(1f)) {
                 Text(tx.merchant, color = if (tx.isPaid) SecondaryText else Color.White, fontSize = 16.sp)
                 Spacer(Modifier.height(4.dp))
-                Text("${tx.bank} · ${dateFormat.format(Date(tx.timestamp))}", color = TertiaryText, fontSize = 12.sp)
+                Text("${tx.bank} · $formattedDate", color = TertiaryText, fontSize = 12.sp)
             }
             Column(horizontalAlignment = Alignment.End) {
                 Text("₹${formatAmount(tx.amount)}", color = if (tx.isPaid) Success else Color.White, fontSize = 18.sp, fontWeight = FontWeight.Light)
