@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.creditguard.ui.theme.*
 import com.creditguard.util.SecurePreferences
+import com.creditguard.util.UpiHelper
 import kotlinx.coroutines.delay
 
 @Composable
@@ -63,6 +64,12 @@ fun SettingsScreen(onClearHistory: () -> Unit) {
         Text("upi id", color = TertiaryText, fontSize = 11.sp, letterSpacing = 1.sp)
         Spacer(Modifier.height(12.dp))
         MinimalTextField(value = upiId, onValueChange = { upiId = it }, placeholder = "yourname@upi")
+        
+        val isValidUpi = upiId.isEmpty() || UpiHelper.isValidUpiId(upiId)
+        if (!isValidUpi) {
+            Spacer(Modifier.height(6.dp))
+            Text("invalid upi id format", color = ErrorRed, fontSize = 11.sp)
+        }
         
         Spacer(Modifier.height(32.dp))
         

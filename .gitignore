@@ -1,21 +1,27 @@
-# Gradle files
-.gradle/
-build/
-!gradle/wrapper/gradle-wrapper.jar
-
-# Local configuration file
+*.iml
+.gradle
+/local.properties
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
 local.properties
 
-# IntelliJ IDEA / Android Studio
-.idea/
-*.iml
+# Android Studio 3.2
+/.idea/codeStyles
+/.idea/gradle.xml
+/.idea/misc.xml
 
-# OS-specific
+# Mac
 .DS_Store
 
-# APK files
-*.apk
-*.ap_
-
-# Build artifacts
-app/build/
+app/build
+app/release
+release.keystore

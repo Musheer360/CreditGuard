@@ -14,16 +14,17 @@ class PaymentLauncherActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        val amount = intent.getDoubleExtra("amount", 0.0)
+        val amount = intent.getLongExtra("amount", 0L)
         val merchant = intent.getStringExtra("merchant") ?: "Unknown"
         val transactionId = intent.getLongExtra("transaction_id", 0)
+        val amountRupees = amount.toDouble() / 100.0
         
         if (amount > 0 && transactionId > 0) {
             // Set up pending payment tracking
-            PendingPaymentTracker.setPendingPayment(this, amount, listOf(transactionId))
+            PendingPaymentTracker.setPendingPayment(this, amountRupees, listOf(transactionId))
             
             // Create and launch UPI payment intent
-            val payIntent = UpiHelper.createPaymentIntentForTransaction(this, amount, merchant)
+            val payIntent = UpiHelper.createPaymentIntentForTransaction(this, amountRupees, merchant)
             if (payIntent != null) {
                 try {
                     startActivity(payIntent)

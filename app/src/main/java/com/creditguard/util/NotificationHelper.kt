@@ -26,6 +26,7 @@ object NotificationHelper {
     
     fun showTransactionNotification(context: Context, transaction: Transaction) {
         val notifyId = (transaction.id % Int.MAX_VALUE).toInt()
+        val rupees = transaction.amount.toDouble() / 100.0
         
         // Tapping notification directly opens UPI payment via PaymentLauncherActivity
         val payIntent = Intent(context, PaymentLauncherActivity::class.java).apply {
@@ -41,10 +42,11 @@ object NotificationHelper {
         
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setContentTitle("₹${String.format("%,.0f", transaction.amount)} spent")
+            .setContentTitle("₹${String.format("%,.0f", rupees)} spent")
             .setContentText("${transaction.merchant} • Tap to set aside")
             .setStyle(NotificationCompat.BigTextStyle()
-                .bigText("You spent ₹${String.format("%,.2f", transaction.amount)} at ${transaction.merchant}.\nTap to set aside this amount via UPI."))
+                .bigText("You spent ₹${String.format("%,.2f", rupees)} at ${transaction.merchant}.\nTap to set aside this amount via UPI."))
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .setContentIntent(payPending)

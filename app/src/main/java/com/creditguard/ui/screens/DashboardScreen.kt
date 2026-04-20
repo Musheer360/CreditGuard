@@ -181,7 +181,7 @@ fun DashboardScreen(
         if (transactions.isEmpty()) {
             item { EmptyState() }
         } else {
-            val displayedTransactions = transactions.take(20)
+            val displayedTransactions = transactions.take(50)
             itemsIndexed(displayedTransactions, key = { _, tx -> tx.id }) { index, tx ->
                 SwipeableTransactionRow(
                     tx = tx,
@@ -256,7 +256,7 @@ private fun DeleteConfirmationDialog(
                 Spacer(Modifier.height(12.dp))
                 
                 Text(
-                    "₹${formatAmount(transaction.amount)} · ${transaction.merchant}",
+                    "₹${formatAmount(transaction.amount.toDouble() / 100.0)} · ${transaction.merchant}",
                     color = SecondaryText,
                     fontSize = 14.sp,
                     letterSpacing = 0.3.sp
@@ -529,8 +529,9 @@ private fun SwipeableTransactionRow(
                     onTap = {
                         if (!currentIsPaid) {
                             try {
-                                PendingPaymentTracker.setPendingPayment(context, tx.amount, listOf(tx.id))
-                                val intent = UpiHelper.createPaymentIntentForTransaction(context, tx.amount, tx.merchant)
+                                val amountRupees = tx.amount.toDouble() / 100.0
+                                PendingPaymentTracker.setPendingPayment(context, amountRupees, listOf(tx.id))
+                                val intent = UpiHelper.createPaymentIntentForTransaction(context, amountRupees, tx.merchant)
                                 intent?.let { context.startActivity(it) }
                             } catch (_: Exception) {
                                 // Handle case where no UPI app is available or activity fails to start
@@ -548,7 +549,7 @@ private fun SwipeableTransactionRow(
                 Text("${tx.bank} · ${dateFormat.format(Date(tx.timestamp))}", color = TertiaryText, fontSize = 12.sp)
             }
             Column(horizontalAlignment = Alignment.End) {
-                Text("₹${formatAmount(tx.amount)}", color = if (tx.isPaid) Success else Color.White, fontSize = 18.sp, fontWeight = FontWeight.Light)
+                Text("₹${formatAmount(tx.amount.toDouble() / 100.0)}", color = if (tx.isPaid) Success else Color.White, fontSize = 18.sp, fontWeight = FontWeight.Light)
                 Spacer(Modifier.height(2.dp))
                 Text(
                     if (tx.isPaid) "← swipe to unmark" else "swipe → to mark paid",

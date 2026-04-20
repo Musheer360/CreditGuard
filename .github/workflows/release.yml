@@ -1,32 +1,162 @@
-name: Build & Release APK
+name: Build & Release
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches: [master]
+    paths:
+      - 'app/**'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'gradle/**'
+      - 'gradle.properties'
+      - '.github/workflows/**'
+    tags: ['v*']
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  GRADLE_OPTS: -Dorg.gradle.jvmargs="-Xmx3g -Dfile.encoding=UTF-8 -XX:+UseG1GC"
 
 jobs:
-  release:
+  version:
+    name: Determine Version
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      version_name: ${{ steps.version.outputs.version_name }}
+      version_code: ${{ steps.version.outputs.version_code }}
+      create_tag: ${{ steps.version.outputs.create_tag }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Determine version
+        id: version
+        shell: bash
+        run: |
+          BASE_VERSION=$(grep 'val baseVersion' app/build.gradle.kts | sed 's/.*"\(.*\)".*/\1/')
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            TAG="${{ github.ref_name }}"
+            CREATE_TAG=false
+          else
+            PATCH=$(git tag -l "v${BASE_VERSION}.*" | grep -v beta | sed "s/v${BASE_VERSION}\.//" | sort -n | tail -1)
+            NEXT=$((${PATCH:--1} + 1))
+            TAG="v${BASE_VERSION}.${NEXT}"
+            CREATE_TAG=true
+          fi
+          VERSION_NAME="${TAG#v}"
+          VERSION_CODE=$(git rev-list --count HEAD)
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version_name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+          echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
+          echo "create_tag=${CREATE_TAG}" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Build Signed APK
+    needs: [version]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - uses: gradle/actions/setup-gradle@50e97c2cd7a37755bbfafc9c5b7cafaece252f6e # v6.1.0
+        with:
+          cache-encryption-key: ${{ secrets.GRADLE_CACHE_ENCRYPTION_KEY }}
+          gradle-home-cache-cleanup: true
+
+      - name: Decode signing keystore
+        shell: bash
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > ${{ github.workspace }}/release.keystore
+          chmod 600 ${{ github.workspace }}/release.keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+
+      - name: Build Release APK
+        shell: bash
+        run: |
+          result=1
+          for i in 1 2 3; do
+            ./gradlew assembleRelease --parallel --build-cache --no-daemon --stacktrace \
+              -PversionCode=${{ needs.version.outputs.version_code }} \
+              -PversionName=${{ needs.version.outputs.version_name }} && { result=0; break; }
+            echo "::warning::Build attempt $i failed, retrying..."
+            sleep 15
+          done
+          exit $result
+        env:
+          KEYSTORE_FILE: ${{ github.workspace }}/release.keystore
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+
+      - name: Cleanup keystore
+        if: always()
+        shell: bash
+        run: rm -f ${{ github.workspace }}/release.keystore
+
+      - name: Verify APK
+        shell: bash
+        run: |
+          APK_PATH="app/build/outputs/apk/release/app-release.apk"
+          if [ ! -f "$APK_PATH" ]; then
+            echo "::error::APK not found"
+            exit 1
+          fi
+          SIZE=$(stat -c%s "$APK_PATH")
+          SIZE_MB=$(awk "BEGIN {printf \"%.2f\", $SIZE / 1048576}")
+          echo "## APK Size: ${SIZE_MB}MB" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Rename APK
+        shell: bash
+        run: mv app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/CreditGuard-${{ needs.version.outputs.tag }}.apk
+
+      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: CreditGuard-${{ needs.version.outputs.tag }}
+          path: app/build/outputs/apk/release/CreditGuard-*.apk
+          retention-days: 90
+
+  release:
+    name: Release
+    needs: [version, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: write
-
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - uses: actions/setup-java@v4
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          distribution: temurin
-          java-version: 17
-          cache: gradle
+          name: CreditGuard-${{ needs.version.outputs.tag }}
+          path: artifacts/
 
-      - name: Build debug APK
-        run: chmod +x gradlew && ./gradlew assembleDebug --parallel --build-cache --no-daemon
-        env:
-          GRADLE_OPTS: -Dorg.gradle.jvmargs="-Xmx2g -XX:+UseParallelGC"
+      - name: Create tag
+        if: needs.version.outputs.create_tag == 'true'
+        shell: bash
+        run: |
+          git tag "${{ needs.version.outputs.tag }}"
+          git push origin "${{ needs.version.outputs.tag }}"
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2.6.1
         with:
+          tag_name: ${{ needs.version.outputs.tag }}
+          files: artifacts/CreditGuard-*.apk
+          name: CreditGuard ${{ needs.version.outputs.tag }}
           generate_release_notes: true
-          files: app/build/outputs/apk/debug/*.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

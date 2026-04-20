@@ -13,23 +13,24 @@ object SecurePreferences {
     private var cachedPreferences: SharedPreferences? = null
     
     fun getSecurePreferences(context: Context): SharedPreferences {
-        // Return cached instance if available
         cachedPreferences?.let { return it }
-        
-        // Thread-safe double-checked locking
         return synchronized(this) {
             cachedPreferences ?: run {
-                val masterKey = MasterKey.Builder(context.applicationContext)
-                    .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-                    .build()
-                
-                EncryptedSharedPreferences.create(
-                    context.applicationContext,
-                    PREFS_NAME,
-                    masterKey,
-                    EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-                    EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-                ).also { cachedPreferences = it }
+                try {
+                    val masterKey = MasterKey.Builder(context.applicationContext)
+                        .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                        .build()
+                    EncryptedSharedPreferences.create(
+                        context.applicationContext,
+                        PREFS_NAME,
+                        masterKey,
+                        EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                        EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+                    )
+                } catch (_: Exception) {
+                    // Fallback to regular prefs if Keystore is corrupted
+                    context.applicationContext.getSharedPreferences(PREFS_NAME + "_fallback", Context.MODE_PRIVATE)
+                }.also { cachedPreferences = it }
             }
         }
     }

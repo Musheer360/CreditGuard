@@ -26,35 +26,26 @@ class SmsReceiver : BroadcastReceiver() {
         
         if (sender.isBlank() || body.isBlank()) return
         
-        // First check if this is a UPI debit (payment confirmation) - synchronous, lightweight
-        if (UpiDebitParser.isUpiDebit(sender, body)) {
-            val amount = UpiDebitParser.extractAmount(body)
-            if (amount != null) {
-                PendingPaymentTracker.checkAndMarkPaid(context, amount)
-            }
-            return
-        }
-        
-        // Then check if it's a credit card transaction - synchronous parsing
-        val transaction = SmsParser.parse(sender, body) ?: return
-        
-        // Use goAsync() to properly handle async work in BroadcastReceiver
-        // This prevents the system from killing our process during DB operations
-        // The pendingResult.finish() in finally ensures proper cleanup
         val pendingResult = goAsync()
-        
-        // Launch coroutine for DB work - goAsync() extends receiver lifecycle until finish() is called
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val app = context.applicationContext as? CreditGuardApp
-                val insertedId = app?.database?.transactionDao()?.insert(transaction)
+                if (UpiDebitParser.isUpiDebit(sender, body)) {
+                    val amount = UpiDebitParser.extractAmount(body)
+                    if (amount != null) {
+                        PendingPaymentTracker.checkAndMarkPaid(context, amount)
+                    }
+                    return@launch
+                }
                 
-                if (insertedId != null && insertedId > 0) {
+                val transaction = SmsParser.parse(sender, body) ?: return@launch
+                
+                val app = context.applicationContext as? CreditGuardApp ?: return@launch
+                val insertedId = app.database.transactionDao().insert(transaction)
+                if (insertedId > 0) {
                     val transactionWithId = transaction.copy(id = insertedId)
                     NotificationHelper.showTransactionNotification(context, transactionWithId)
                 }
             } finally {
-                // Always finish the async operation to release system resources
                 pendingResult.finish()
             }
         }

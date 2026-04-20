@@ -25,8 +25,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.creditguard.data.db.AppDatabase
+import com.creditguard.data.model.Transaction
 import com.creditguard.ui.MainViewModel
 import com.creditguard.ui.screens.DashboardScreen
 import com.creditguard.ui.screens.SettingsScreen
@@ -35,27 +37,27 @@ import com.creditguard.ui.theme.PureBlack
 import com.creditguard.ui.theme.SecondaryText
 
 class MainActivity : ComponentActivity() {
-    
+
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { }
-    
+
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         requestPermissions()
-        
+
         val dao = AppDatabase.getInstance(this).transactionDao()
-        val viewModel = MainViewModel(dao)
-        
+        val viewModel = ViewModelProvider(this, MainViewModel.Companion.Factory(dao)).get(MainViewModel::class.java)
+
         setContent {
             CreditGuardTheme {
                 MainApp(viewModel)
             }
         }
     }
-    
+
     private fun requestPermissions() {
         val permissions = mutableListOf(
             Manifest.permission.RECEIVE_SMS,
@@ -64,7 +66,7 @@ class MainActivity : ComponentActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             permissions.add(Manifest.permission.POST_NOTIFICATIONS)
         }
-        
+
         val needed = permissions.filter {
             ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
         }
@@ -77,11 +79,27 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MainApp(viewModel: MainViewModel) {
     var selectedTab by remember { mutableIntStateOf(0) }
-    
+
     val transactions by viewModel.transactions.collectAsStateWithLifecycle()
     val unpaidTotal by viewModel.unpaidTotal.collectAsStateWithLifecycle()
     val monthlySpend by viewModel.monthlySpend.collectAsStateWithLifecycle()
-    
+
+    // Convert TransactionSummary to Transaction for DashboardScreen compatibility
+    val transactionsAsModel = remember(transactions) {
+        transactions.map {
+            Transaction(
+                id = it.id,
+                amount = it.amount,
+                merchant = it.merchant,
+                cardLast4 = it.cardLast4,
+                bank = it.bank,
+                timestamp = it.timestamp,
+                isPaid = it.isPaid,
+                rawSms = ""
+            )
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -98,9 +116,9 @@ fun MainApp(viewModel: MainViewModel) {
         ) { tab ->
             when (tab) {
                 0 -> DashboardScreen(
-                    transactions = transactions,
-                    unpaidTotal = unpaidTotal,
-                    monthlySpend = monthlySpend,
+                    transactions = transactionsAsModel,
+                    unpaidTotal = unpaidTotal.toDouble() / 100.0,
+                    monthlySpend = monthlySpend.toDouble() / 100.0,
                     onPayClick = { },
                     onMarkPaid = viewModel::markPaid,
                     onMarkUnpaid = viewModel::markUnpaid,
@@ -112,7 +130,7 @@ fun MainApp(viewModel: MainViewModel) {
                 )
             }
         }
-        
+
         // Minimal bottom nav
         Row(
             modifier = Modifier

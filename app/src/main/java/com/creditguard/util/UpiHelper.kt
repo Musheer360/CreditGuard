@@ -10,7 +10,7 @@ object UpiHelper {
     
     private val UPI_ID_REGEX = Regex("^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+$")
     
-    private fun isValidUpiId(upiId: String): Boolean {
+    fun isValidUpiId(upiId: String): Boolean {
         return upiId.length in 3..50 && UPI_ID_REGEX.matches(upiId)
     }
     
@@ -28,7 +28,7 @@ object UpiHelper {
         val cleanPayeeName = sanitizeInput(payeeName)
         val cleanNote = sanitizeInput(note)
         
-        if (!isValidUpiId(cleanUpiId) || amount <= 0 || amount > 100000) return null
+        if (!isValidUpiId(cleanUpiId) || amount <= 0 || amount > 200000) return null
         
         val uri = Uri.Builder()
             .scheme("upi")

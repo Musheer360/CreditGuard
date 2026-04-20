@@ -1,6 +1,7 @@
 package com.creditguard.util
 
 import com.creditguard.data.model.Transaction
+import kotlin.math.roundToLong
 
 object SmsParser {
     
@@ -75,14 +76,15 @@ object SmsParser {
         if (!isCreditCardSpend(sender, body)) return null
         
         val amount = extractAmount(body) ?: return null
-        if (amount <= 0 || amount > 10000000) return null
+        if (amount <= 0 || amount > 10_000_000) return null
+        val amountPaise = (amount * 100).roundToLong()
         
         val cardLast4 = extractCardLast4(body) ?: "****"
         val merchant = extractMerchant(body) ?: "Unknown"
         val bank = detectBank(sender, body)
         
         return Transaction(
-            amount = amount,
+            amount = amountPaise,
             merchant = merchant.trim().take(30),
             cardLast4 = cardLast4,
             bank = bank,

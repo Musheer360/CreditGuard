@@ -3,9 +3,7 @@ package com.creditguard.util
 import android.content.Context
 import android.content.SharedPreferences
 import com.creditguard.CreditGuardApp
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
+import com.creditguard.util.SecurePreferences
 
 object PendingPaymentTracker {
     private const val PREFS_NAME = "pending_payments"
@@ -15,7 +13,7 @@ object PendingPaymentTracker {
     private const val TIMEOUT_MS = 5 * 60 * 1000L // 5 minutes
     
     private fun getPrefs(context: Context): SharedPreferences {
-        return context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return SecurePreferences.getSecurePreferences(context)
     }
     
     fun setPendingPayment(context: Context, amount: Double, transactionIds: List<Long>) {
@@ -44,14 +42,18 @@ object PendingPaymentTracker {
     }
     
     fun clear(context: Context) {
-        getPrefs(context).edit().clear().apply()
+        getPrefs(context).edit()
+            .remove(KEY_AMOUNT)
+            .remove(KEY_TIMESTAMP)
+            .remove(KEY_TX_IDS)
+            .apply()
     }
     
     /**
      * Checks if the debited amount matches a pending payment and marks transactions as paid.
-     * This version is optimized for use within a BroadcastReceiver - caller must handle goAsync().
+     * Must be called from a coroutine on Dispatchers.IO.
      */
-    fun checkAndMarkPaid(context: Context, debitedAmount: Double): Boolean {
+    suspend fun checkAndMarkPaid(context: Context, debitedAmount: Double): Boolean {
         return try {
             val pendingAmount = getPendingAmount(context) ?: return false
             
@@ -59,22 +61,18 @@ object PendingPaymentTracker {
             if (kotlin.math.abs(pendingAmount - debitedAmount) <= 1.0) {
                 val txIds = getPendingTransactionIds(context)
                 if (txIds.isNotEmpty()) {
-                    // Launch coroutine for DB operations
-                    // Note: The caller (SmsReceiver) handles goAsync() for its own lifecycle
-                    CoroutineScope(Dispatchers.IO).launch {
-                        try {
-                            val app = context.applicationContext as? CreditGuardApp
-                            val dao = app?.database?.transactionDao()
-                            txIds.forEach { id -> dao?.markPaid(id) }
-                        } catch (_: Exception) {
-                            // Ignore DB errors - non-critical
-                        }
+                    try {
+                        val app = context.applicationContext as? CreditGuardApp
+                        val dao = app?.database?.transactionDao()
+                        txIds.forEach { id -> dao?.markPaid(id) }
+                    } catch (_: Exception) {
+                        // Ignore DB errors - non-critical
                     }
                     clear(context)
                     
                     // Store success for UI to show
                     try {
-                        context.applicationContext.getSharedPreferences("payment_success", Context.MODE_PRIVATE)
+                        SecurePreferences.getSecurePreferences(context.applicationContext)
                             .edit()
                             .putBoolean("show_success", true)
                             .putString("amount", debitedAmount.toString())
@@ -94,14 +92,18 @@ object PendingPaymentTracker {
     }
     
     fun getAndClearSuccess(context: Context): PaymentSuccess? {
-        val prefs = context.applicationContext.getSharedPreferences("payment_success", Context.MODE_PRIVATE)
+        val prefs = SecurePreferences.getSecurePreferences(context.applicationContext)
         if (!prefs.getBoolean("show_success", false)) return null
         
         val success = PaymentSuccess(
             amount = prefs.getString("amount", "0")?.toDoubleOrNull() ?: 0.0,
             count = prefs.getInt("count", 0)
         )
-        prefs.edit().clear().apply()
+        prefs.edit()
+            .remove("show_success")
+            .remove("amount")
+            .remove("count")
+            .apply()
         return success
     }
     
