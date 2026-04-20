@@ -10,7 +10,7 @@ import com.creditguard.data.model.Transaction
 
 // NOTE: build.gradle.kts needs: ksp { arg("room.schemaLocation", "$projectDir/schemas") }
 
-@Database(entities = [Transaction::class], version = 2, exportSchema = true)
+@Database(entities = [Transaction::class], version = 2, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun transactionDao(): TransactionDao
 
@@ -51,7 +51,7 @@ abstract class AppDatabase : RoomDatabase() {
                     "creditguard.db"
                 )
                     .addMigrations(MIGRATION_1_2)
-                    .fallbackToDestructiveMigration()
+                    .fallbackToDestructiveMigration(dropAllTables = true)
                     .build().also { instance = it }
             }
     }

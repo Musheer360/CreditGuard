@@ -16,3 +16,8 @@
     public static int d(...);
     public static int i(...);
 }
+
+# Google Tink (used by security-crypto) references these at compile time but not runtime
+-dontwarn com.google.errorprone.annotations.**
+-dontwarn javax.annotation.**
+-dontwarn javax.annotation.concurrent.**
